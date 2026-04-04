@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FASOKOCOM</title>
+
+<link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet"/>
+
+<style>
+body{
+  background-image:url("https://scontent.fbko3-1.fna.fbcdn.net/v/t1.6435-9/50259426_2409054525985055_6711488137803071488_n.jpg?_nc_cat=102&ccb=1-7&_nc_sid=7b2446&_nc_eui2=AeFanEUpKTNO4D6rPgzvMutrSD3TQ15nk2dIPdNDXmeTZ3BLpLZ4IOCbxsCGRWNOhSgw35pWF0svvz_Z61ZJmg0b&_nc_ohc=YG9tuL7XC24Q7kNvwFxTCIs&_nc_oc=Adofw_5nbXUNAKJv9yGx_-39iAtAPfV8t15_X0SL7tMxgmnAJWkahjROyChtoaoqsOc&_nc_zt=23&_nc_ht=scontent.fbko3-1.fna&_nc_gid=BuE9sg9HmUbrvdfhNSMrnA&_nc_ss=7a3a8&oh=00_Af2QIughLcGH606WgX1WMXNacj6Prpplue102IAe2hCtiw&oe=69F643BC");
+  background-size:cover;
+  background-position:center;
+  font-family:Arial;
+  color:white;
+  text-align:center;
+  margin:0;
+}
+
+.overlay{
+  background:rgba(0,0,0,0.45);
+  min-height:100vh;
+  padding-top:40px;
+  padding-bottom:40px;
+}
+
+h1{
+  font-size:40px;
+  color:#00ff9c;
+}
+
+button{
+  padding:14px 18px;
+  font-size:17px;
+  margin:10px;
+  border:none;
+  border-radius:14px;
+  background:linear-gradient(135deg, rgba(0,255,156,0.95), rgba(0,180,255,0.9));
+  color:black;
+  font-weight:bold;
+  cursor:pointer;
+  box-shadow:0 6px 18px rgba(0,0,0,0.35);
+  transition:0.2s;
+}
+
+button:hover{
+  transform:scale(1.03);
+}
+
+button:active{
+  transform:scale(0.98);
+}
+
+#map{
+  height:450px;
+  width:90%;
+  margin:auto;
+  border-radius:14px;
+  overflow:hidden;
+  box-shadow:0 10px 25px rgba(0,0,0,0.55);
+}
+
+/* CONTROLES MAPLIBRE -> très transparent */
+.maplibregl-ctrl-group{
+  background:rgba(0,0,0,0.15) !important;
+  backdrop-filter: blur(6px);
+  border:none !important;
+}
+
+.maplibregl-ctrl-group button{
+  background:transparent !important;
+  color:white !important;
+}
+
+.maplibregl-ctrl-group button:hover{
+  background:rgba(255,255,255,0.08) !important;
+}
+
+/* Menu déroulant */
+.mapMenu{
+  position:fixed;
+  top:90px;
+  right:20px;
+  background:rgba(0,0,0,0.30);
+  backdrop-filter: blur(6px);
+  border-radius:14px;
+  padding:10px;
+  display:none;
+  z-index:9999;
+  text-align:left;
+  box-shadow:0 10px 25px rgba(0,0,0,0.45);
+}
+
+.mapMenu button{
+  display:block;
+  width:160px;
+  background:rgba(255,255,255,0.08);
+  color:white;
+  border:none;
+  padding:12px;
+  margin:6px 0;
+  border-radius:12px;
+  cursor:pointer;
+  font-size:15px;
+  font-weight:bold;
+}
+
+.mapMenu button:hover{
+  background:rgba(255,255,255,0.18);
+}
+
+/* Bloc stats */
+.statsBox{
+  margin:15px auto;
+  width:90%;
+  max-width:420px;
+  padding:12px;
+  border-radius:14px;
+  background:rgba(0,0,0,0.25);
+  backdrop-filter: blur(6px);
+  font-size:16px;
+  box-shadow:0 10px 25px rgba(0,0,0,0.35);
+}
+
+/* Liste agents */
+.agentsList{
+  margin:15px auto;
+  width:90%;
+  max-width:420px;
+  padding:12px;
+  border-radius:14px;
+  background:rgba(0,0,0,0.25);
+  backdrop-filter: blur(6px);
+  text-align:left;
+  font-size:14px;
+  max-height:220px;
+  overflow:auto;
+  box-shadow:0 10px 25px rgba(0,0,0,0.35);
+}
+
+.agentsList li{
+  padding:10px;
+  margin-bottom:8px;
+  border-radius:12px;
+  background:rgba(255,255,255,0.06);
+  cursor:pointer;
+}
+
+.agentsList li:hover{
+  background:rgba(255,255,255,0.12);
+}
+
+@media (max-width: 768px){
+  h1{font-size:28px;}
+
+  button{
+    width:90%;
+    font-size:16px;
+    padding:14px;
+    margin:8px auto;
+    display:block;
+  }
+
+  #map{
+    height:500px;
+    width:95%;
+  }
+}
+</style>
+</head>
+
+<body>
+<div class="overlay">
+  <h1>🇲🇱 FASOKOCOM</h1>
+  <p>Carte tactique en temps réel</p>
+
+  <button onclick="showPosition()">📍 MA POSITION</button>
+  <button onclick="showMap()">🗺 CARTE DE L'ÉQUIPE</button>
+
+  <div class="statsBox">
+    👥 Agents connectés : <span id="agentCount">0</span>
+  </div>
+
+  <div class="agentsList">
+    <b>📌 Liste des agents :</b>
+    <ul id="agentsUl" style="list-style:none; padding:0; margin-top:10px;"></ul>
+  </div>
+
+  <p id="position">Position non disponible</p>
+  <div id="map"></div>
+</div>
+
+<script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+import { getDatabase, ref, set, onValue, onDisconnect, remove } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-database.js";
+
+// Firebase Config (FASOKOCOM2)
+const firebaseConfig = {
+  apiKey: "AIzaSyA83FA1Ne_qjYoIYHtsOXc7j3h3bdTOgLQ",
+  authDomain: "fasokocom2.firebaseapp.com",
+  projectId: "fasokocom2",
+  storageBucket: "fasokocom2.firebasestorage.app",
+  messagingSenderId: "730331164569",
+  appId: "1:730331164569:web:8e984ad9d88a30bf2c2d08"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+// Nom agent
+
+
+// ID unique
+let userId = "agent_" + Math.floor(Math.random() * 1000000);
+let userRef = ref(db, "users/" + userId);
+
+onDisconnect(userRef).remove();
+
+
+// ---------------- STYLES ----------------
+const normalStyle = "https://demotiles.maplibre.org/style.json";
+const reliefStyle = "https://tiles.stadiamaps.com/styles/outdoors.json";
+
+// Satellite + Labels (corrigé)
+const satelliteStyle = {
+  version: 8,
+  sources: {
+    satellite: {
+      type: "raster",
+      tiles: [
+        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+      ],
+      tileSize: 256,
+      attribution: "Esri"
+    },
+    labels: {
+      type: "raster",
+      tiles: [
+        "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+      ],
+      tileSize: 256,
+      attribution: "Esri Labels"
+    }
+  },
+  layers: [
+    { id: "satellite-layer", type: "raster", source: "satellite" },
+    { id: "labels-layer", type: "raster", source: "labels" }
+  ]
+};
+
+
+// ---------------- MAP ----------------
+let map = new maplibregl.Map({
+  container: "map",
+  style: normalStyle,
+  center: [-8.0029, 12.6392],
+  zoom: 13
+});
+
+// Zoom + boussole + rotation
+map.addControl(new maplibregl.NavigationControl(), "top-right");
+map.addControl(new maplibregl.FullscreenControl(), "top-right");
+
+
+
+// ---------------- MENU STYLES ----------------
+let menu = document.createElement("div");
+menu.className = "mapMenu";
+menu.innerHTML = `
+  <button id="styleNormal">🗺 Normal</button>
+  <button id="styleSatellite">🛰 Satellite</button>
+  <button id="styleRelief">⛰ Relief</button>
+`;
+document.body.appendChild(menu);
+
+class StyleSwitcherControl {
+  onAdd(map) {
+    this.map = map;
+    this.container = document.createElement("div");
+    this.container.className = "maplibregl-ctrl maplibregl-ctrl-group";
+
+    const btn = document.createElement("button");
+    btn.innerHTML = "🗺";
+    btn.title = "Changer la carte";
+
+    btn.onclick = () => {
+      menu.style.display = (menu.style.display === "block") ? "none" : "block";
+    };
+
+    this.container.appendChild(btn);
+    return this.container;
+  }
+
+  onRemove() {
+    this.container.parentNode.removeChild(this.container);
+    this.map = undefined;
+  }
+}
+
+map.addControl(new StyleSwitcherControl(), "top-right");
+
+document.getElementById("styleNormal").onclick = () => {
+  map.setStyle(normalStyle);
+  menu.style.display = "none";
+};
+
+document.getElementById("styleSatellite").onclick = () => {
+  map.setStyle(satelliteStyle);
+  menu.style.display = "none";
+};
+
+document.getElementById("styleRelief").onclick = () => {
+  map.setStyle(reliefStyle);
+  menu.style.display = "none";
+};
+
+
+// ---------------- MARKERS ----------------
+let markers = {};
+let lastData = null;
+
+function updateMarker(id, lat, lon, popupText) {
+  let markerColor = (id === userId) ? "#00ff9c" : "red";
+
+  if (markers[id]) {
+    markers[id].setLngLat([lon, lat]);
+    markers[id].getPopup().setHTML(popupText);
+  } else {
+    let popup = new maplibregl.Popup({ offset: 25 }).setHTML(popupText);
+
+    let el = document.createElement("div");
+    el.style.width = "18px";
+    el.style.height = "18px";
+    el.style.borderRadius = "50%";
+    el.style.backgroundColor = markerColor;
+    el.style.border = "2px solid white";
+    el.style.cursor = "pointer";
+
+    markers[id] = new maplibregl.Marker({ element: el })
+      .setLngLat([lon, lat])
+      .setPopup(popup)
+      .addTo(map);
+
+    // ouverture popup mobile
+    el.addEventListener("click", (e) => {
+      e.stopPropagation();
+      popup.addTo(map);
+    });
+  }
+}
+
+// Recharger markers après changement de style
+function reloadMarkers() {
+  if (!lastData) return;
+
+  for (let id in markers) {
+    markers[id].remove();
+    delete markers[id];
+  }
+
+  for (let id in lastData) {
+    let user = lastData[id];
+    if (!user.latitude || !user.longitude) continue;
+
+    let displayName = user.name || "Agent";
+    let popupText =
+      "<b>" + displayName + "</b><br>Précision: " +
+      Math.round(user.accuracy || 0) + " m";
+
+    updateMarker(id, user.latitude, user.longitude, popupText);
+  }
+}
+
+map.on("style.load", () => {
+  reloadMarkers();
+});
+
+
+// ---------------- MA POSITION (ANIMATION) ----------------
+window.showPosition = function () {
+  navigator.geolocation.getCurrentPosition((pos) => {
+    let lat = pos.coords.latitude;
+    let lon = pos.coords.longitude;
+    let accuracy = pos.coords.accuracy;
+
+    document.getElementById("position").innerHTML =
+      "Latitude: " + lat +
+      "<br>Longitude: " + lon +
+      "<br>Précision: " + Math.round(accuracy) + " m";
+
+    map.flyTo({
+      center: [lon, lat],
+      zoom: 17,
+      speed: 0.8,
+      curve: 1.6,
+      essential: true
+    });
+
+  }, (err) => {
+    alert("Erreur GPS : " + err.message);
+  }, {
+    enableHighAccuracy: true,
+    timeout: 10000,
+    maximumAge: 0
+  });
+};
+
+
+// ---------------- CARTE DE L'EQUIPE (ANIMATION) ----------------
+window.showMap = function () {
+  let bounds = new maplibregl.LngLatBounds();
+  let count = 0;
+
+  for (let id in markers) {
+    bounds.extend(markers[id].getLngLat());
+    count++;
+  }
+
+  if (count === 0) {
+    alert("Aucun agent trouvé sur la carte.");
+    return;
+  }
+
+  map.fitBounds(bounds, {
+    padding: 70,
+    maxZoom: 16,
+    duration: 2000
+  });
+};
+
+
+// ---------------- TRACKING + ENVOI FIREBASE ----------------
+navigator.geolocation.watchPosition((pos) => {
+  let lat = pos.coords.latitude;
+  let lon = pos.coords.longitude;
+  let accuracy = pos.coords.accuracy;
+
+  if (accuracy > 50) return;
+
+  set(userRef, {
+    name: fullName,
+    latitude: lat,
+    longitude: lon,
+    accuracy: accuracy,
+    timestamp: Date.now()
+  });
+
+}, (err) => {
+  console.log("Erreur GPS :", err.message);
+}, {
+  enableHighAccuracy: true,
+  timeout: 10000,
+  maximumAge: 0
+});
+
+
+// ---------------- LECTURE TEMPS REEL ----------------
+onValue(ref(db, "users"), (snapshot) => {
+  const data = snapshot.val();
+  if (!data) return;
+
+  lastData = data;
+
+  // compteur
+  document.getElementById("agentCount").innerText = Object.keys(data).length;
+
+  // liste agents
+  let ul = document.getElementById("agentsUl");
+  ul.innerHTML = "";
+
+  for (let id in data) {
+    let u = data[id];
+    let nom = u.name || "Agent";
+    let precision = Math.round(u.accuracy || 0);
+
+    let li = document.createElement("li");
+    li.innerHTML = "🟢 <b>" + nom + "</b><br>📍 Précision: " + precision + " m";
+
+    li.onclick = () => {
+      map.flyTo({
+        center: [u.longitude, u.latitude],
+        zoom: 16,
+        speed: 0.8,
+        curve: 1.6
+      });
+    };
+
+    ul.appendChild(li);
+  }
+
+  // supprimer ceux qui n'existent plus
+  for (let id in markers) {
+    if (!data[id]) {
+      markers[id].remove();
+      delete markers[id];
+    }
+  }
+
+  // update markers
+  for (let id in data) {
+    let user = data[id];
+
+    // supprimer fantômes (+2 minutes)
+    if (user.timestamp && (Date.now() - user.timestamp > 120000)) {
+      remove(ref(db, "users/" + id));
+      continue;
+    }
+
+    if (!user.latitude || !user.longitude) continue;
+
+    let displayName = user.name || "Agent";
+    let popupText =
+      "<b>" + displayName + "</b><br>Précision: " +
+      Math.round(user.accuracy || 0) + " m";
+
+    updateMarker(id, user.latitude, user.longitude, popupText);
+  }
+});
+</script>
+<script src="/socket.io/socket.io.js"></script>
+
+<script>
+const socket = io();
+
+let fullName = prompt("Entrez votre Nom + Grade") || "Agent inconnu";
+
+socket.on("connect", () => {
+  console.log("✅ Socket connecté :", socket.id);
+  socket.emit("join", { name: fullName });
+});
+
+// -------------------- WEBRTC --------------------
+let localStream;
+let peerConnection;
+
+const config = {
+  iceServers: [
+    { urls: "stun:stun.l.google.com:19302" }
+  ]
+};
+
+// Démarrer micro automatiquement
+async function startMicrophone(){
+  localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  console.log("🎙 Micro activé !");
+}
+
+// Créer connexion WebRTC
+function createPeerConnection(){
+  peerConnection = new RTCPeerConnection(config);
+
+  // envoyer audio local
+  localStream.getTracks().forEach(track => {
+    peerConnection.addTrack(track, localStream);
+  });
+
+  // recevoir audio distant
+  peerConnection.ontrack = (event) => {
+    console.log("🔊 Audio reçu !");
+    let audio = document.createElement("audio");
+    audio.srcObject = event.streams[0];
+    audio.autoplay = true;
+    document.body.appendChild(audio);
+  };
+
+  // envoyer ICE candidates au serveur
+  peerConnection.onicecandidate = (event) => {
+    if(event.candidate){
+      socket.emit("ice-candidate", event.candidate);
+    }
+  };
+}
+
+// Quand un utilisateur rejoint -> créer appel
+socket.on("user-joined", async () => {
+  console.log("📞 Un agent est arrivé, appel en cours...");
+
+  createPeerConnection();
+
+  let offer = await peerConnection.createOffer();
+  await peerConnection.setLocalDescription(offer);
+
+  socket.emit("offer", offer);
+});
+
+// Recevoir offer
+socket.on("offer", async (offer) => {
+  console.log("📩 Offre reçue !");
+
+  createPeerConnection();
+
+  await peerConnection.setRemoteDescription(offer);
+
+  let answer = await peerConnection.createAnswer();
+  await peerConnection.setLocalDescription(answer);
+
+  socket.emit("answer", answer);
+});
+
+// Recevoir answer
+socket.on("answer", async (answer) => {
+  console.log("✅ Réponse reçue !");
+  await peerConnection.setRemoteDescription(answer);
+});
+
+// Recevoir ICE candidates
+socket.on("ice-candidate", async (candidate) => {
+  try{
+    await peerConnection.addIceCandidate(candidate);
+  }catch(err){
+    console.log("Erreur ICE:", err);
+  }
+});
+
+// Lancer micro dès l’ouverture
+startMicrophone();
+</script>
+</body>
+</html>
