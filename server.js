@@ -39,3 +39,17 @@ io.on("connection", (socket) => {
 server.listen(3000, () => {
   console.log("Server running on port 3000");
 });
+
+
+
+socket.on("call-group", () => {
+socket.broadcast.emit("incoming");
+});
+
+socket.on("call-user", (id) => {
+io.to(id).emit("incoming");
+});
+
+socket.on("hang", () => {
+socket.broadcast.emit("hang");
+});
