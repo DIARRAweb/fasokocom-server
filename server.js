@@ -4,7 +4,6 @@ import { Server } from "socket.io";
 
 const app = express();
 const server = http.createServer(app);
-
 const io = new Server(server);
 
 app.use(express.static("public"));
@@ -14,11 +13,10 @@ io.on("connection", (socket) => {
 
   socket.on("join", (data) => {
     console.log("👤 Nom reçu :", data.name);
-
-    // prévenir les autres
     socket.broadcast.emit("user-joined");
   });
 
+  // 🔁 WebRTC
   socket.on("offer", (offer) => {
     socket.broadcast.emit("offer", offer);
   });
@@ -31,25 +29,28 @@ io.on("connection", (socket) => {
     socket.broadcast.emit("ice-candidate", candidate);
   });
 
+  // 📞 APPEL GROUPE
+  socket.on("call-group", () => {
+    socket.broadcast.emit("incoming");
+  });
+
+  // 📞 APPEL INDIVIDUEL
+  socket.on("call-user", (targetId) => {
+    io.to(targetId).emit("incoming");
+  });
+
+  // ❌ RACCROCHER
+  socket.on("hang", () => {
+    socket.broadcast.emit("hang");
+  });
+
   socket.on("disconnect", () => {
     console.log("❌ Un utilisateur s'est déconnecté :", socket.id);
   });
 });
 
-server.listen(3000, () => {
-  console.log("Server running on port 3000");
-});
-
-
-
-socket.on("call-group", () => {
-socket.broadcast.emit("incoming");
-});
-
-socket.on("call-user", (id) => {
-io.to(id).emit("incoming");
-});
-
-socket.on("hang", () => {
-socket.broadcast.emit("hang");
+// 🚀 LANCER SERVEUR
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log("🔥 Serveur démarré sur le port", PORT);
 });
