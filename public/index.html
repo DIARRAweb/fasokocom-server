@@ -635,26 +635,30 @@ function createPeerConnection(){
 
   // recevoir audio distant
   peerConnection.ontrack = (event) => {
-    console.log("🔊 Audio reçu !");
-    let audio = document.createElement("audio");
-      audio.srcObject = event.streams[0];
+  console.log("🔊 Audio reçu !");
+  console.log(event.streams);
 
-      // 🔥 OBLIGATOIRE MOBILE
-      audio.autoplay = true;
-      audio.playsInline = true;
+  let audio = document.createElement("audio");
+  audio.srcObject = event.streams[0];
 
-      // 🔥 forcer lecture
-      audio.muted = false;
+  // 🔥 OBLIGATOIRE MOBILE
+  audio.autoplay = true;
+  audio.playsInline = true;
 
-      audio.onloadedmetadata = () => {
-        audio.play().catch(e => {
-          console.log("🔇 autoplay bloqué, interaction requise");
-        });
-      };
+  // 🔥 DEBUG (AJOUTE ÇA)
+  audio.controls = true;
 
-      document.body.appendChild(audio);
+  // 🔥 forcer lecture
+  audio.muted = false;
+
+  audio.onloadedmetadata = () => {
+    audio.play().catch(e => {
+      console.log("⛔ autoplay bloqué, interaction requise");
+    });
   };
 
+  document.body.appendChild(audio);
+};
   // envoyer ICE candidates au serveur
   peerConnection.onicecandidate = (event) => {
     if(event.candidate){
@@ -718,7 +722,9 @@ socket.on("ice-candidate", async (data) => {
 });
 
 // Lancer micro dès l’ouverture
-startMicrophone();
+startMicrophone().then(()=>{
+  console.log("🎤 Micro OK prêt");
+});
 
 const talkBtn = document.getElementById("talkBtn");
 
@@ -745,23 +751,17 @@ let menu = document.getElementById("callMenu");
 menu.style.display = menu.style.display === "none" ? "block" : "none";
 }
 
-function callGroup(){
+async function callGroup(){
+
+  // 🔥 activer micro AVANT appel
+  localStream.getAudioTracks().forEach(t => t.enabled = true);
+
   createPeerConnection();
 
-  peerConnection.createOffer().then(offer => {
-    peerConnection.setLocalDescription(offer);
-    
-    for(let id in window.lastData){
-  let target = window.lastData[id].socketId;
+  let offer = await peerConnection.createOffer();
+  await peerConnection.setLocalDescription(offer);
 
-  if(target && target !== socket.id){
-    socket.emit("offer", {
-      offer: offer,
-      to: target
-    });
-  }
-}
-  });
+  socket.emit("offer", offer);
 
   socket.emit("call-group");
 }
@@ -789,12 +789,14 @@ socket.on("incoming", () => {
 });
 
 function acceptCall(){
+
   document.getElementById("incoming").style.display = "none";
   document.getElementById("inCall").style.display = "block";
 
-  createPeerConnection();
+  // 🔥 activer micro aussi ici
+  localStream.getAudioTracks().forEach(t => t.enabled = true);
 
-  // 🔥 très important : attendre l’offre avant réponse
+  createPeerConnection();
 }
 
 function hangUp(){
