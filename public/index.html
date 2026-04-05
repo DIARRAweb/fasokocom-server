@@ -758,17 +758,25 @@ let menu = document.getElementById("callMenu");
 menu.style.display = menu.style.display === "none" ? "block" : "none";
 }
 
-async function callGroup(){
-
-  // 🔥 activer micro AVANT appel
-  localStream.getAudioTracks().forEach(t => t.enabled = true);
+function callGroup(){
 
   createPeerConnection();
 
-  let offer = await peerConnection.createOffer();
-  await peerConnection.setLocalDescription(offer);
+  peerConnection.createOffer().then(offer => {
+    peerConnection.setLocalDescription(offer);
 
-  socket.emit("offer", offer);
+    for(let id in window.lastData){
+      let target = window.lastData[id].socketId;
+
+      if(target && target !== socket.id){
+        socket.emit("offer", {
+          offer: offer,
+          to: target
+        });
+      }
+    }
+
+  });
 
   socket.emit("call-group");
 }
