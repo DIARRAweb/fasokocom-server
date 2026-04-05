@@ -167,6 +167,25 @@ button:active{
     width:95%;
   }
 }
+
+.controlPanel{
+  position:fixed;
+  bottom:20px;
+  left:50%;
+  transform:translateX(-50%);
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  gap:10px;
+  z-index:9999;
+}
+
+#talkBtn{ background:#00c853; color:white; }
+button[onclick="toggleCallMenu()"]{ background:#2979ff; color:white; }
+button[onclick="callGroup()"]{ background:#aa00ff; color:white; }
+button[onclick="showAgentList()"]{ background:#ff6d00; color:white; }
+button[onclick="acceptCall()"]{ background:#00e676; color:black; }
+button[onclick="hangUp()"]{ background:#d50000; color:white; }
 </style>
 </head>
 
@@ -190,14 +209,14 @@ button:active{
   <p id="position">Position non disponible</p>
   <div id="map"></div>
 
-      <div>
+      <div class="controlPanel">
 
-    <button id="talkBtn">🎤 Parler</button>
-    <button onclick="toggleCallMenu()">📞 Appel</button>
+        <button id="talkBtn">🎤 Parler</button>
+        <button onclick="toggleCallMenu()">📞 Appel</button>
 
-    <div id="callMenu" style="display:none;">
-    <button onclick="callGroup()">📞 Groupe</button>
-    <button onclick="showAgentList()">👤 Individuel</button>
+        <div id="callMenu" style="display:none;">
+        <button onclick="callGroup()">📞 Groupe</button>
+        <button onclick="showAgentList()">👤 Individuel</button>
     </div>
 
     <select id="agentSelect" style="display:none;"></select>
@@ -631,6 +650,16 @@ function createPeerConnection(){
   };
 }
 
+socket.on("user-joined", async () => {
+  console.log("📞 Nouvel agent → appel auto");
+
+  createPeerConnection();
+
+  let offer = await peerConnection.createOffer();
+  await peerConnection.setLocalDescription(offer);
+
+  socket.emit("offer", offer);
+});
 
 // Recevoir offer
 socket.on("offer", async (offer) => {
@@ -660,6 +689,8 @@ socket.on("ice-candidate", async (candidate) => {
     console.log("Erreur ICE:", err);
   }
 });
+
+
 
 // Lancer micro dès l’ouverture
 startMicrophone();
@@ -698,8 +729,6 @@ function callGroup(){
   socket.emit("call-group");
 }
 
-
-
 function showAgentList(){
 let select = document.getElementById("agentSelect");
 
@@ -723,10 +752,12 @@ socket.on("incoming", () => {
 });
 
 function acceptCall(){
-document.getElementById("incoming").style.display = "none";
-document.getElementById("inCall").style.display = "block";
+  document.getElementById("incoming").style.display = "none";
+  document.getElementById("inCall").style.display = "block";
 
-createPeerConnection();
+  createPeerConnection();
+
+  // 🔥 très important : attendre l’offre avant réponse
 }
 
 function hangUp(){
