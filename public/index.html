@@ -730,20 +730,16 @@ const talkBtn = document.getElementById("talkBtn");
 
 talkBtn.onclick = async () => {
 
-  // activer micro
-  localStream.getAudioTracks().forEach(t => t.enabled = true);
+  let stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-  // 🔥 débloquer audio mobile
-  let testAudio = document.createElement("audio");
-  testAudio.srcObject = localStream;
-  testAudio.muted = true;
+  let audio = document.createElement("audio");
+  audio.srcObject = stream;
+  audio.autoplay = true;
+  audio.controls = true;
 
-  try{
-    await testAudio.play();
-    console.log("🔊 audio débloqué");
-  }catch(e){
-    console.log("⚠️ interaction requise");
-  }
+  document.body.appendChild(audio);
+
+  console.log("🎤 Test micro lancé");
 };
 
 function toggleCallMenu(){
