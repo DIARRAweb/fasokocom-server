@@ -17,17 +17,24 @@ io.on("connection", (socket) => {
   });
 
   // 🔁 WebRTC
-  socket.on("offer", (offer) => {
-    socket.broadcast.emit("offer", offer);
+  socket.on("offer", (data) => {
+  io.to(data.to).emit("offer", {
+    offer: data.offer,
+    from: socket.id
   });
+});
 
-  socket.on("answer", (answer) => {
-    socket.broadcast.emit("answer", answer);
+  socket.on("answer", (data) => {
+  io.to(data.to).emit("answer", {
+    answer: data.answer
   });
+});
 
-  socket.on("ice-candidate", (candidate) => {
-    socket.broadcast.emit("ice-candidate", candidate);
+  socket.on("ice-candidate", (data) => {
+  io.to(data.to).emit("ice-candidate", {
+    candidate: data.candidate
   });
+});
 
   // 📞 APPEL GROUPE
   socket.on("call-group", () => {

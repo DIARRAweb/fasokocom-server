@@ -645,7 +645,16 @@ function createPeerConnection(){
   // envoyer ICE candidates au serveur
   peerConnection.onicecandidate = (event) => {
     if(event.candidate){
-      socket.emit("ice-candidate", event.candidate);
+      for(let id in window.lastData){
+  let target = window.lastData[id].socketId;
+
+  if(target && target !== socket.id){
+    socket.emit("ice-candidate", {
+      candidate: event.candidate,
+      to: target
+    });
+  }
+}
     }
   };
 }
@@ -662,8 +671,10 @@ socket.on("user-joined", async () => {
 });
 
 // Recevoir offer
-socket.on("offer", async (offer) => {
-  console.log("📩 Offre reçue !");
+socket.on("offer", async (data) => {
+
+  let offer = data.offer;
+  let from = data.from;
 
   createPeerConnection();
 
@@ -672,7 +683,10 @@ socket.on("offer", async (offer) => {
   let answer = await peerConnection.createAnswer();
   await peerConnection.setLocalDescription(answer);
 
-  socket.emit("answer", answer);
+  socket.emit("answer", {
+    answer: answer,
+    to: from
+  });
 });
 
 // Recevoir answer
@@ -682,9 +696,9 @@ socket.on("answer", async (answer) => {
 });
 
 // Recevoir ICE candidates
-socket.on("ice-candidate", async (candidate) => {
+socket.on("ice-candidate", async (data) => {
   try{
-    await peerConnection.addIceCandidate(candidate);
+    await peerConnection.addIceCandidate(data.candidate);
   }catch(err){
     console.log("Erreur ICE:", err);
   }
@@ -723,7 +737,17 @@ function callGroup(){
 
   peerConnection.createOffer().then(offer => {
     peerConnection.setLocalDescription(offer);
-    socket.emit("offer", offer);
+    
+    for(let id in window.lastData){
+  let target = window.lastData[id].socketId;
+
+  if(target && target !== socket.id){
+    socket.emit("offer", {
+      offer: offer,
+      to: target
+    });
+  }
+}
   });
 
   socket.emit("call-group");
