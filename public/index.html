@@ -626,6 +626,12 @@ console.log("🎙 Micro prêt (coupé)");
 
 // Créer connexion WebRTC
 function createPeerConnection(){
+
+  if(!localStream){
+  console.log("❌ ERREUR : micro non prêt !");
+  return;
+}
+
   peerConnection = new RTCPeerConnection(config);
 
   // envoyer audio local
@@ -677,14 +683,23 @@ function createPeerConnection(){
 }
 
 socket.on("user-joined", async () => {
-  console.log("📞 Nouvel agent → appel auto");
 
   createPeerConnection();
 
   let offer = await peerConnection.createOffer();
   await peerConnection.setLocalDescription(offer);
 
-  socket.emit("offer", offer);
+  for(let id in window.lastData){
+    let target = window.lastData[id].socketId;
+
+    if(target && target !== socket.id){
+      socket.emit("offer", {
+        offer: offer,
+        to: target
+      });
+    }
+  }
+
 });
 
 // Recevoir offer
@@ -707,9 +722,9 @@ socket.on("offer", async (data) => {
 });
 
 // Recevoir answer
-socket.on("answer", async (answer) => {
+socket.on("answer", async (data) => {
   console.log("✅ Réponse reçue !");
-  await peerConnection.setRemoteDescription(answer);
+  await peerConnection.setRemoteDescription(data.answer);
 });
 
 // Recevoir ICE candidates
@@ -722,6 +737,12 @@ socket.on("ice-candidate", async (data) => {
 });
 
 // Lancer micro dès l’ouverture
+
+(async () => {
+  await startMicrophone();
+  console.log("🔥 Micro prêt AVANT tout");
+})();
+
 startMicrophone().then(()=>{
   console.log("🎤 Micro OK prêt");
 });
@@ -808,8 +829,10 @@ function acceptCall(){
   document.getElementById("incoming").style.display = "none";
   document.getElementById("inCall").style.display = "block";
 
-  // 🔥 activer micro aussi ici
-  localStream.getAudioTracks().forEach(t => t.enabled = true);
+  // 🔥 activer micro
+  if(localStream){
+    localStream.getAudioTracks().forEach(t => t.enabled = true);
+  }
 
   createPeerConnection();
 }
