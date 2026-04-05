@@ -732,14 +732,25 @@ talkBtn.onclick = async () => {
 
   let stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-  let audio = document.createElement("audio");
+  let audio = document.getElementById("testAudio");
+
+  if(!audio){
+    audio = document.createElement("audio");
+    audio.id = "testAudio";
+    audio.controls = true;
+    document.body.appendChild(audio);
+  }
+
   audio.srcObject = stream;
-  audio.autoplay = true;
-  audio.controls = true;
+  audio.muted = false;
+  audio.volume = 1;
 
-  document.body.appendChild(audio);
-
-  console.log("🎤 Test micro lancé");
+  try{
+    await audio.play();
+    console.log("🔊 SON OK");
+  }catch(e){
+    console.log("❌ lecture bloquée");
+  }
 };
 
 function toggleCallMenu(){
