@@ -637,9 +637,22 @@ function createPeerConnection(){
   peerConnection.ontrack = (event) => {
     console.log("🔊 Audio reçu !");
     let audio = document.createElement("audio");
-    audio.srcObject = event.streams[0];
-    audio.autoplay = true;
-    document.body.appendChild(audio);
+      audio.srcObject = event.streams[0];
+
+      // 🔥 OBLIGATOIRE MOBILE
+      audio.autoplay = true;
+      audio.playsInline = true;
+
+      // 🔥 forcer lecture
+      audio.muted = false;
+
+      audio.onloadedmetadata = () => {
+        audio.play().catch(e => {
+          console.log("🔇 autoplay bloqué, interaction requise");
+        });
+      };
+
+      document.body.appendChild(audio);
   };
 
   // envoyer ICE candidates au serveur
@@ -704,27 +717,27 @@ socket.on("ice-candidate", async (data) => {
   }
 });
 
-
-
 // Lancer micro dès l’ouverture
 startMicrophone();
 
 const talkBtn = document.getElementById("talkBtn");
 
-talkBtn.onmousedown = () => {
-localStream.getAudioTracks().forEach(t => t.enabled = true);
-};
+talkBtn.onclick = async () => {
 
-talkBtn.onmouseup = () => {
-localStream.getAudioTracks().forEach(t => t.enabled = false);
-};
+  // activer micro
+  localStream.getAudioTracks().forEach(t => t.enabled = true);
 
-talkBtn.ontouchstart = () => {
-localStream.getAudioTracks().forEach(t => t.enabled = true);
-};
+  // 🔥 débloquer audio mobile
+  let testAudio = document.createElement("audio");
+  testAudio.srcObject = localStream;
+  testAudio.muted = true;
 
-talkBtn.ontouchend = () => {
-localStream.getAudioTracks().forEach(t => t.enabled = false);
+  try{
+    await testAudio.play();
+    console.log("🔊 audio débloqué");
+  }catch(e){
+    console.log("⚠️ interaction requise");
+  }
 };
 
 function toggleCallMenu(){
