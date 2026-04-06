@@ -651,8 +651,6 @@ function createPeerConnection(){
   audio.autoplay = true;
   audio.playsInline = true;
 
-  // 🔥 DEBUG (AJOUTE ÇA)
-  audio.controls = true;
 
   // 🔥 forcer lecture
   audio.muted = false;
@@ -749,28 +747,28 @@ startMicrophone().then(()=>{
 
 const talkBtn = document.getElementById("talkBtn");
 
-talkBtn.onclick = async () => {
 
-  let stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-  let audio = document.getElementById("testAudio");
-
-  if(!audio){
-    audio = document.createElement("audio");
-    audio.id = "testAudio";
-    audio.controls = true;
-    document.body.appendChild(audio);
+talkBtn.onmousedown = () => {
+  if(localStream){
+    localStream.getAudioTracks().forEach(t => t.enabled = true);
   }
+};
 
-  audio.srcObject = stream;
-  audio.muted = false;
-  audio.volume = 1;
+talkBtn.onmouseup = () => {
+  if(localStream){
+    localStream.getAudioTracks().forEach(t => t.enabled = false);
+  }
+};
 
-  try{
-    await audio.play();
-    console.log("🔊 SON OK");
-  }catch(e){
-    console.log("❌ lecture bloquée");
+talkBtn.ontouchstart = () => {
+  if(localStream){
+    localStream.getAudioTracks().forEach(t => t.enabled = true);
+  }
+};
+
+talkBtn.ontouchend = () => {
+  if(localStream){
+    localStream.getAudioTracks().forEach(t => t.enabled = false);
   }
 };
 
