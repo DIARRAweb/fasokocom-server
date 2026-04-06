@@ -664,18 +664,18 @@ function createPeerConnection(){
   document.body.appendChild(audio);
 };
   // envoyer ICE candidates au serveur
-  peerConnection.onicecandidate = (event) => {
+          peerConnection.onicecandidate = (event) => {
     if(event.candidate){
       for(let id in window.lastData){
-  let target = window.lastData[id].socketId;
+        let target = window.lastData[id].socketId;
 
-  if(target && target !== socket.id){
-    socket.emit("ice-candidate", {
-      candidate: event.candidate,
-      to: target
-    });
-  }
-}
+        if(target && target !== socket.id){
+          socket.emit("ice-candidate", {
+            candidate: event.candidate,
+            to: target
+          });
+        }
+      }
     }
   };
 }
@@ -708,7 +708,10 @@ socket.on("offer", async (data) => {
 
   createPeerConnection();
 
-  await peerConnection.setRemoteDescription(offer);
+  // 🔥 CORRECTION ICI
+  await peerConnection.setRemoteDescription(
+    new RTCSessionDescription(offer)
+  );
 
   let answer = await peerConnection.createAnswer();
   await peerConnection.setLocalDescription(answer);
@@ -717,12 +720,18 @@ socket.on("offer", async (data) => {
     answer: answer,
     to: from
   });
+
 });
 
 // Recevoir answer
 socket.on("answer", async (data) => {
+
   console.log("✅ Réponse reçue !");
-  await peerConnection.setRemoteDescription(data.answer);
+
+  await peerConnection.setRemoteDescription(
+    new RTCSessionDescription(data.answer)
+  );
+
 });
 
 // Recevoir ICE candidates
