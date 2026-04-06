@@ -567,6 +567,8 @@ onValue(ref(db, "users"), (snapshot) => {
 <script>
 const socket = io();
 
+let currentTarget = null; // ✅ AJOUTE ICI
+
 // 🔥 rendre socketId global
 window.socketId = null;
 
@@ -664,20 +666,14 @@ function createPeerConnection(){
   document.body.appendChild(audio);
 };
   // envoyer ICE candidates au serveur
-          peerConnection.onicecandidate = (event) => {
-    if(event.candidate){
-      for(let id in window.lastData){
-        let target = window.lastData[id].socketId;
-
-        if(target && target !== socket.id){
-          socket.emit("ice-candidate", {
-            candidate: event.candidate,
-            to: target
-          });
-        }
-      }
-    }
-  };
+  peerConnection.onicecandidate = (event) => {
+  if(event.candidate && currentTarget){
+    socket.emit("ice-candidate", {
+      candidate: event.candidate,
+      to: currentTarget
+    });
+  }
+};
 }
 
 socket.on("user-joined", async () => {
@@ -750,9 +746,6 @@ socket.on("ice-candidate", async (data) => {
   console.log("🔥 Micro prêt AVANT tout");
 })();
 
-startMicrophone().then(()=>{
-  console.log("🎤 Micro OK prêt");
-});
 
 const talkBtn = document.getElementById("talkBtn");
 
@@ -790,19 +783,32 @@ function callGroup(){
 
   createPeerConnection();
 
+  let target = null;
+
+  for(let id in window.lastData){
+    let s = window.lastData[id].socketId;
+
+    if(s && s !== socket.id){
+      target = s;
+      break;
+    }
+  }
+
+  if(!target){
+    console.log("❌ Aucun agent trouvé");
+    return;
+  }
+
+  currentTarget = target; // 🔥 important
+
   peerConnection.createOffer().then(offer => {
+
     peerConnection.setLocalDescription(offer);
 
-    for(let id in window.lastData){
-      let target = window.lastData[id].socketId;
-
-      if(target && target !== socket.id){
-        socket.emit("offer", {
-          offer: offer,
-          to: target
-        });
-      }
-    }
+    socket.emit("offer", {
+      offer: offer,
+      to: target
+    });
 
   });
 
