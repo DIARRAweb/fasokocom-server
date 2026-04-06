@@ -783,6 +783,9 @@ function callGroup(){
 
   createPeerConnection();
 
+  // 🔥 ACTIVER MICRO ICI
+  localStream.getAudioTracks().forEach(t => t.enabled = true);
+
   let target = null;
 
   for(let id in window.lastData){
@@ -799,17 +802,15 @@ function callGroup(){
     return;
   }
 
-  currentTarget = target; // 🔥 important
+  currentTarget = target;
 
   peerConnection.createOffer().then(offer => {
-
     peerConnection.setLocalDescription(offer);
 
     socket.emit("offer", {
       offer: offer,
       to: target
     });
-
   });
 
   socket.emit("call-group");

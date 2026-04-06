@@ -9,28 +9,49 @@ const io = new Server(server);
 app.use(express.static("public"));
 
 io.on("connection", (socket) => {
+
   console.log("✅ Connecté :", socket.id);
 
+  // 👤 rejoindre
   socket.on("join", (data) => {
     console.log("👤 Nom :", data.name);
+
+    // notifier les autres
+    socket.broadcast.emit("user-joined");
   });
 
-  // 🔥 WebRTC SIMPLE (groupe)
-  socket.on("offer", (offer) => {
-    socket.broadcast.emit("offer", offer);
+  // 🔥 OFFER (ciblé)
+  socket.on("offer", (data) => {
+    io.to(data.to).emit("offer", {
+      offer: data.offer,
+      from: socket.id
+    });
   });
 
-  socket.on("answer", (answer) => {
-    socket.broadcast.emit("answer", answer);
+  // 🔥 ANSWER (ciblé)
+  socket.on("answer", (data) => {
+    io.to(data.to).emit("answer", {
+      answer: data.answer,
+      from: socket.id
+    });
   });
 
-  socket.on("ice-candidate", (candidate) => {
-    socket.broadcast.emit("ice-candidate", candidate);
+  // 🔥 ICE (ciblé)
+  socket.on("ice-candidate", (data) => {
+    io.to(data.to).emit("ice-candidate", {
+      candidate: data.candidate,
+      from: socket.id
+    });
   });
 
-  // 📞 appel groupe
+  // 📞 appel groupe (juste notification)
   socket.on("call-group", () => {
     socket.broadcast.emit("incoming");
+  });
+
+  // 📞 appel individuel
+  socket.on("call-user", (targetId) => {
+    io.to(targetId).emit("incoming");
   });
 
   // 📴 raccrocher
@@ -41,6 +62,7 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     console.log("❌ Déconnecté :", socket.id);
   });
+
 });
 
 const PORT = process.env.PORT || 3000;
