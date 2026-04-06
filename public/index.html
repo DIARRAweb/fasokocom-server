@@ -619,17 +619,12 @@ const config = {
 
 // Démarrer micro automatiquement
 async function startMicrophone(){
-  try{
-    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-    // 🔥 ACTIVER DIRECT
-    localStream.getAudioTracks().forEach(track => track.enabled = true);
+// micro coupé au départ
+localStream.getAudioTracks().forEach(track => track.enabled = false);
 
-    console.log("🎤 Micro ACTIVÉ");
-  }catch(e){
-    console.log("❌ Micro refusé :", e);
-    alert("Autorise le micro !");
-  }
+console.log("🎙 Micro prêt (coupé)");
 }
 
 // Créer connexion WebRTC
@@ -749,15 +744,9 @@ socket.on("ice-candidate", async (data) => {
 
 (async () => {
   await startMicrophone();
-  console.log("🎤 Micro prêt AVANT tout");
+  console.log("🔥 Micro prêt AVANT tout");
 })();
 
-// 🔥 AJOUT ICI (niveau 2)
-document.body.addEventListener("click", async () => {
-  if(!localStream){
-    await startMicrophone();
-  }
-}, { once: true });
 
 const talkBtn = document.getElementById("talkBtn");
 
