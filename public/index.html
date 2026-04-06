@@ -589,6 +589,7 @@ let localStream;
 let peerConnection;
 
 const config = {
+  iceTransportPolicy: "relay", // 🔥 OBLIGE TURN
   iceServers: [
     {
       urls: "stun:stun.relay.metered.ca:80"
