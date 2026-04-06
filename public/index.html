@@ -701,17 +701,21 @@ socket.on("user-joined", async () => {
 // Recevoir offer
 socket.on("offer", async (data) => {
 
+  console.log("📩 Offre reçue");
+
   let offer = data.offer;
   let from = data.from;
 
+  currentTarget = from;
+
   createPeerConnection();
 
-  // 🔥 CORRECTION ICI
   await peerConnection.setRemoteDescription(
     new RTCSessionDescription(offer)
   );
 
   let answer = await peerConnection.createAnswer();
+
   await peerConnection.setLocalDescription(answer);
 
   socket.emit("answer", {
@@ -723,13 +727,10 @@ socket.on("offer", async (data) => {
 
 // Recevoir answer
 socket.on("answer", async (data) => {
-
   console.log("✅ Réponse reçue !");
-
   await peerConnection.setRemoteDescription(
     new RTCSessionDescription(data.answer)
   );
-
 });
 
 // Recevoir ICE candidates
