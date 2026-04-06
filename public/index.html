@@ -629,10 +629,15 @@ console.log("🎙 Micro prêt (coupé)");
 // Créer connexion WebRTC
 function createPeerConnection(){
 
+  if(peerConnection){
+    console.log("⚠️ Connexion déjà existante");
+    return;
+  }
+
   if(!localStream){
-  console.log("❌ ERREUR : micro non prêt !");
-  return;
-}
+    console.log("❌ ERREUR : micro non prêt !");
+    return;
+  }
 
   peerConnection = new RTCPeerConnection(config);
 
@@ -643,37 +648,34 @@ function createPeerConnection(){
 
   // recevoir audio distant
   peerConnection.ontrack = (event) => {
-  console.log("🔊 Audio reçu !");
-  console.log(event.streams);
+    console.log("🔊 Audio reçu !");
+    console.log(event.streams);
 
-  let audio = document.createElement("audio");
-  audio.srcObject = event.streams[0];
+    let audio = document.createElement("audio");
+    audio.srcObject = event.streams[0];
 
-  // 🔥 OBLIGATOIRE MOBILE
-  audio.autoplay = true;
-  audio.playsInline = true;
+    audio.autoplay = true;
+    audio.playsInline = true;
+    audio.controls = true; // 🔥 debug visible
 
+    audio.onloadedmetadata = () => {
+      audio.play().catch(e => {
+        console.log("⛔ autoplay bloqué");
+      });
+    };
 
-  // 🔥 forcer lecture
-  audio.muted = false;
-
-  audio.onloadedmetadata = () => {
-    audio.play().catch(e => {
-      console.log("⛔ autoplay bloqué, interaction requise");
-    });
+    document.body.appendChild(audio);
   };
 
-  document.body.appendChild(audio);
-};
-  // envoyer ICE candidates au serveur
+  // ICE candidates
   peerConnection.onicecandidate = (event) => {
-  if(event.candidate && currentTarget){
-    socket.emit("ice-candidate", {
-      candidate: event.candidate,
-      to: currentTarget
-    });
-  }
-};
+    if(event.candidate && currentTarget){
+      socket.emit("ice-candidate", {
+        candidate: event.candidate,
+        to: currentTarget
+      });
+    }
+  };
 }
 
 socket.on("user-joined", async () => {
@@ -786,10 +788,10 @@ function callGroup(){
 
   createPeerConnection();
 
-  // 🔥 ACTIVER MICRO ICI
+  // 🔥 activer micro
   if(localStream){
-  localStream.getAudioTracks().forEach(t => t.enabled = true);
-}
+    localStream.getAudioTracks().forEach(t => t.enabled = true);
+  }
 
   let target = null;
 
@@ -810,12 +812,14 @@ function callGroup(){
   currentTarget = target;
 
   peerConnection.createOffer().then(offer => {
+
     peerConnection.setLocalDescription(offer);
 
     socket.emit("offer", {
       offer: offer,
       to: target
     });
+
   });
 
   socket.emit("call-group");
