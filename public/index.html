@@ -749,27 +749,30 @@ socket.on("ice-candidate", async (data) => {
 
 const talkBtn = document.getElementById("talkBtn");
 
-
+// 🎤 ACTIVER MICRO (appui)
 talkBtn.onmousedown = () => {
   if(localStream){
     localStream.getAudioTracks().forEach(t => t.enabled = true);
   }
 };
 
+// 🎤 COUPER MICRO (relâchement) MAIS PAS EN APPEL
 talkBtn.onmouseup = () => {
-  if(localStream){
+  if(localStream && !peerConnection){
     localStream.getAudioTracks().forEach(t => t.enabled = false);
   }
 };
 
+// 📱 MOBILE - ACTIVER
 talkBtn.ontouchstart = () => {
   if(localStream){
     localStream.getAudioTracks().forEach(t => t.enabled = true);
   }
 };
 
+// 📱 MOBILE - COUPER (sauf appel)
 talkBtn.ontouchend = () => {
-  if(localStream){
+  if(localStream && !peerConnection){
     localStream.getAudioTracks().forEach(t => t.enabled = false);
   }
 };
@@ -784,7 +787,9 @@ function callGroup(){
   createPeerConnection();
 
   // 🔥 ACTIVER MICRO ICI
+  if(localStream){
   localStream.getAudioTracks().forEach(t => t.enabled = true);
+}
 
   let target = null;
 
@@ -843,11 +848,11 @@ function acceptCall(){
   document.getElementById("incoming").style.display = "none";
   document.getElementById("inCall").style.display = "block";
 
-  // 🔥 activer micro
+
+   // 🔥 AJOUTE ICI
   if(localStream){
     localStream.getAudioTracks().forEach(t => t.enabled = true);
   }
-
   createPeerConnection();
 }
 
