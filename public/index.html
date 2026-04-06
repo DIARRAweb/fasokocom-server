@@ -628,10 +628,10 @@ console.log("🎙 Micro prêt (coupé)");
 
 // Créer connexion WebRTC
 function createPeerConnection(){
-
+  // 🔥 FERME L'ANCIENNE CONNEXION
   if(peerConnection){
-    console.log("⚠️ Connexion déjà existante");
-    return;
+    peerConnection.close();
+    peerConnection = null;
   }
 
   if(!localStream){
@@ -862,20 +862,37 @@ function acceptCall(){
 }
 
 function hangUp(){
-if(peerConnection){
-peerConnection.close();
-peerConnection = null;
-}
 
-document.getElementById("incoming").style.display = "none";
-document.getElementById("inCall").style.display = "none";
+  if(peerConnection){
+    peerConnection.close();
+    peerConnection = null;
+  }
 
-socket.emit("hang");
+  currentTarget = null;
+
+  document.getElementById("incoming").style.display = "none";
+  document.getElementById("inCall").style.display = "none";
+
+  socket.emit("hang");
 }
 
 socket.on("hang", () => {
-document.getElementById("incoming").style.display = "none";
-document.getElementById("inCall").style.display = "none";
+
+  console.log("📴 Appel terminé");
+
+  // 🔥 fermer connexion WebRTC
+  if(peerConnection){
+    peerConnection.close();
+    peerConnection = null;
+  }
+
+  // 🔥 reset target
+  currentTarget = null;
+
+  // UI
+  document.getElementById("incoming").style.display = "none";
+  document.getElementById("inCall").style.display = "none";
+
 });
 </script>
 </body>
