@@ -256,7 +256,7 @@ let userRef = ref(db, "users/" + userId);
 onDisconnect(userRef).remove();
 
 // ---------------- STYLES ----------------
-const normalStyle = "https://demotiles.maplibre.org/style.json";
+const normalStyle = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
 const reliefStyle = "https://tiles.stadiamaps.com/styles/outdoors.json";
 
 // Satellite + Labels (corrigé)
@@ -268,21 +268,28 @@ const satelliteStyle = {
       tiles: [
         "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
       ],
-      tileSize: 256,
-      attribution: "Esri"
+      tileSize: 256
     },
     labels: {
       type: "raster",
       tiles: [
-        "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+        "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}",
+        "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
       ],
-      tileSize: 256,
-      attribution: "Esri Labels"
+      tileSize: 256
     }
   },
   layers: [
-    { id: "satellite-layer", type: "raster", source: "satellite" },
-    { id: "labels-layer", type: "raster", source: "labels" }
+    {
+      id: "satellite",
+      type: "raster",
+      source: "satellite"
+    },
+    {
+      id: "labels",
+      type: "raster",
+      source: "labels"
+    }
   ]
 };
 
