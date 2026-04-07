@@ -180,12 +180,11 @@ button:active{
   z-index:9999;
 }
 
-#talkBtn{ background:#00c853; color:white; }
-button[onclick="toggleCallMenu()"]{ background:#2979ff; color:white; }
-button[onclick="callGroup()"]{ background:#aa00ff; color:white; }
-button[onclick="showAgentList()"]{ background:#ff6d00; color:white; }
+button[onclick="startCall()"]{ background:#2979ff; color:white; }
 button[onclick="acceptCall()"]{ background:#00e676; color:black; }
 button[onclick="hangUp()"]{ background:#d50000; color:white; }
+button[onclick="toggleMute()"]{ background:#ffab00; color:black; }
+
 </style>
 </head>
 
@@ -211,26 +210,23 @@ button[onclick="hangUp()"]{ background:#d50000; color:white; }
 
       <div class="controlPanel">
 
-        <button id="talkBtn">🎤 Parler</button>
-        <button onclick="toggleCallMenu()">📞 Appel</button>
+  <!-- 📞 Appel -->
+  <button onclick="startCall()">📞 Appel</button>
 
-        <div id="callMenu" style="display:none;">
-        <button onclick="callGroup()">📞 Groupe</button>
-        <button onclick="showAgentList()">👤 Individuel</button>
-    </div>
-
-    <select id="agentSelect" style="display:none;"></select>
-
-    <div id="incoming" style="display:none;">
+  <!-- 📲 Appel entrant -->
+  <div id="incoming" style="display:none;">
     <button onclick="acceptCall()">✅ Décrocher</button>
-    </div>
+  </div>
 
-    <div id="inCall" style="display:none;">
+  <!-- 🔊 En appel -->
+  <div id="inCall" style="display:none;">
+    <button onclick="toggleMute()">🎤 Pause</button>
     <button onclick="hangUp()">❌ Raccrocher</button>
-    </div>
+  </div>
 
-    </div>
-</div>
+</div> <!-- FIN controlPanel -->
+
+</div> <!-- FIN overlay -->
 
 <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
 
@@ -253,13 +249,11 @@ const db = getDatabase(app);
 
 // Nom agent
 
-
 // ID unique
 let userId = "agent_" + Math.floor(Math.random() * 1000000);
 let userRef = ref(db, "users/" + userId);
 
 onDisconnect(userRef).remove();
-
 
 // ---------------- STYLES ----------------
 const normalStyle = "https://demotiles.maplibre.org/style.json";
@@ -292,7 +286,6 @@ const satelliteStyle = {
   ]
 };
 
-
 // ---------------- MAP ----------------
 let map = new maplibregl.Map({
   container: "map",
@@ -304,7 +297,6 @@ let map = new maplibregl.Map({
 // Zoom + boussole + rotation
 map.addControl(new maplibregl.NavigationControl(), "top-right");
 map.addControl(new maplibregl.FullscreenControl(), "top-right");
-
 
 
 // ---------------- MENU STYLES ----------------
@@ -357,7 +349,6 @@ document.getElementById("styleRelief").onclick = () => {
   map.setStyle(reliefStyle);
   menu.style.display = "none";
 };
-
 
 // ---------------- MARKERS ----------------
 let markers = {};
@@ -419,7 +410,6 @@ map.on("style.load", () => {
   reloadMarkers();
 });
 
-
 // ---------------- MA POSITION (ANIMATION) ----------------
 window.showPosition = function () {
   navigator.geolocation.getCurrentPosition((pos) => {
@@ -449,7 +439,6 @@ window.showPosition = function () {
   });
 };
 
-
 // ---------------- CARTE DE L'EQUIPE (ANIMATION) ----------------
 window.showMap = function () {
   let bounds = new maplibregl.LngLatBounds();
@@ -471,7 +460,6 @@ window.showMap = function () {
     duration: 2000
   });
 };
-
 
 // ---------------- TRACKING + ENVOI FIREBASE ----------------
 navigator.geolocation.watchPosition((pos) => {
@@ -497,7 +485,6 @@ set(userRef, {
   timeout: 10000,
   maximumAge: 0
 });
-
 
 // ---------------- LECTURE TEMPS REEL ----------------
 onValue(ref(db, "users"), (snapshot) => {
@@ -562,151 +549,101 @@ onValue(ref(db, "users"), (snapshot) => {
   }
 });
 </script>
-<script src="/socket.io/socket.io.js"></script>
 
+<script src="/socket.io/socket.io.js"></script>
 <script>
+
 const socket = io();
 
-let currentTarget = null; // ✅ AJOUTE ICI
-
-// 🔥 rendre socketId global
+// 🔥 infos globales
 window.socketId = null;
+window.fullName = prompt("Nom + Grade") || "Agent";
 
-// 🔥 nom global
-window.fullName = prompt("Entrez votre Nom + Grade") || "Agent inconnu";
-
+// connexion
 socket.on("connect", () => {
-  console.log("✅ Socket connecté :", socket.id);
-
-  // 🔥 stocker socketId global
   window.socketId = socket.id;
-
   socket.emit("join", { name: window.fullName });
 });
 
-// -------------------- WEBRTC --------------------
+// ---------------- WEBRTC ----------------
+
 let localStream;
 let peerConnection;
 
 const config = {
   iceServers: [
-    {
-      urls: "stun:stun.relay.metered.ca:80"
-    },
+    { urls: "stun:stun.relay.metered.ca:80" },
     {
       urls: "turn:global.relay.metered.ca:80",
-      username: "281ef9ce632cfee31624cbbf",
-      credential: "dz8EPE920FbhBmoz"
-    },
-    {
-      urls: "turn:global.relay.metered.ca:80?transport=tcp",
-      username: "281ef9ce632cfee31624cbbf",
-      credential: "dz8EPE920FbhBmoz"
-    },
-    {
-      urls: "turn:global.relay.metered.ca:443",
-      username: "281ef9ce632cfee31624cbbf",
-      credential: "dz8EPE920FbhBmoz"
-    },
-    {
-      urls: "turns:global.relay.metered.ca:443?transport=tcp",
       username: "281ef9ce632cfee31624cbbf",
       credential: "dz8EPE920FbhBmoz"
     }
   ]
 };
 
-// Démarrer micro automatiquement
+// 🎤 micro
 async function startMicrophone(){
-localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-// micro coupé au départ
-localStream.getAudioTracks().forEach(track => track.enabled = false);
-
-console.log("🎙 Micro prêt (coupé)");
+  localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  console.log("🎤 Micro prêt");
 }
 
-// Créer connexion WebRTC
+// 🔗 connexion
 function createPeerConnection(){
-  // 🔥 FERME L'ANCIENNE CONNEXION
+
   if(peerConnection){
     peerConnection.close();
-    peerConnection = null;
-  }
-
-  if(!localStream){
-    console.log("❌ ERREUR : micro non prêt !");
-    return;
   }
 
   peerConnection = new RTCPeerConnection(config);
 
-  // envoyer audio local
   localStream.getTracks().forEach(track => {
     peerConnection.addTrack(track, localStream);
   });
 
-  // recevoir audio distant
   peerConnection.ontrack = (event) => {
-    console.log("🔊 Audio reçu !");
-    console.log(event.streams);
+    console.log("🔊 Audio reçu");
 
     let audio = document.createElement("audio");
     audio.srcObject = event.streams[0];
-
     audio.autoplay = true;
     audio.playsInline = true;
-    audio.controls = true; // 🔥 debug visible
-
-    audio.onloadedmetadata = () => {
-      audio.play().catch(e => {
-        console.log("⛔ autoplay bloqué");
-      });
-    };
 
     document.body.appendChild(audio);
   };
 
-  // ICE candidates
   peerConnection.onicecandidate = (event) => {
-    if(event.candidate && currentTarget){
-      socket.emit("ice-candidate", {
-        candidate: event.candidate,
-        to: currentTarget
-      });
+    if(event.candidate){
+      socket.emit("ice-candidate", event.candidate);
     }
   };
 }
 
-socket.on("user-joined", async () => {
+// 📞 appeler tout le monde
+function startCall(){
+  socket.emit("call");
+}
+
+// 📲 recevoir appel
+socket.on("incoming", () => {
+  document.getElementById("incoming").style.display = "block";
+});
+
+// ✅ décrocher
+async function acceptCall(){
+
+  document.getElementById("incoming").style.display = "none";
+  document.getElementById("inCall").style.display = "block";
 
   createPeerConnection();
 
   let offer = await peerConnection.createOffer();
   await peerConnection.setLocalDescription(offer);
 
-  for(let id in window.lastData){
-    let target = window.lastData[id].socketId;
+  socket.emit("offer", offer);
+}
 
-    if(target && target !== socket.id){
-      socket.emit("offer", {
-        offer: offer,
-        to: target
-      });
-    }
-  }
-
-});
-
-// Recevoir offer
-socket.on("offer", async (data) => {
-
-  console.log("📩 Offre reçue");
-
-  let offer = data.offer;
-  let from = data.from;
-
-  currentTarget = from;
+// 📩 recevoir offer
+socket.on("offer", async (offer) => {
 
   createPeerConnection();
 
@@ -715,152 +652,35 @@ socket.on("offer", async (data) => {
   );
 
   let answer = await peerConnection.createAnswer();
-
   await peerConnection.setLocalDescription(answer);
 
-  socket.emit("answer", {
-    answer: answer,
-    to: from
-  });
-
+  socket.emit("answer", answer);
 });
 
-// Recevoir answer
-socket.on("answer", async (data) => {
-  console.log("✅ Réponse reçue !");
+// 📩 recevoir answer
+socket.on("answer", async (answer) => {
   await peerConnection.setRemoteDescription(
-    new RTCSessionDescription(data.answer)
+    new RTCSessionDescription(answer)
   );
 });
 
-// Recevoir ICE candidates
-socket.on("ice-candidate", async (data) => {
+// 📩 ICE
+socket.on("ice-candidate", async (candidate) => {
   try{
-    await peerConnection.addIceCandidate(data.candidate);
-  }catch(err){
-    console.log("Erreur ICE:", err);
-  }
+    await peerConnection.addIceCandidate(candidate);
+  }catch(e){}
 });
 
-// Lancer micro dès l’ouverture
-
-(async () => {
-  await startMicrophone();
-  console.log("🔥 Micro prêt AVANT tout");
-})();
-
-
-const talkBtn = document.getElementById("talkBtn");
-
-// 🎤 ACTIVER MICRO (appui)
-talkBtn.onmousedown = () => {
+// 🎤 pause micro
+function toggleMute(){
   if(localStream){
-    localStream.getAudioTracks().forEach(t => t.enabled = true);
-  }
-};
-
-// 🎤 COUPER MICRO (relâchement) MAIS PAS EN APPEL
-talkBtn.onmouseup = () => {
-  if(localStream && !peerConnection){
-    localStream.getAudioTracks().forEach(t => t.enabled = false);
-  }
-};
-
-// 📱 MOBILE - ACTIVER
-talkBtn.ontouchstart = () => {
-  if(localStream){
-    localStream.getAudioTracks().forEach(t => t.enabled = true);
-  }
-};
-
-// 📱 MOBILE - COUPER (sauf appel)
-talkBtn.ontouchend = () => {
-  if(localStream && !peerConnection){
-    localStream.getAudioTracks().forEach(t => t.enabled = false);
-  }
-};
-
-function toggleCallMenu(){
-let menu = document.getElementById("callMenu");
-menu.style.display = menu.style.display === "none" ? "block" : "none";
-}
-
-function callGroup(){
-
-  createPeerConnection();
-
-  // 🔥 activer micro
-  if(localStream){
-    localStream.getAudioTracks().forEach(t => t.enabled = true);
-  }
-
-  let target = null;
-
-  for(let id in window.lastData){
-    let s = window.lastData[id].socketId;
-
-    if(s && s !== socket.id){
-      target = s;
-      break;
-    }
-  }
-
-  if(!target){
-    console.log("❌ Aucun agent trouvé");
-    return;
-  }
-
-  currentTarget = target;
-
-  peerConnection.createOffer().then(offer => {
-
-    peerConnection.setLocalDescription(offer);
-
-    socket.emit("offer", {
-      offer: offer,
-      to: target
+    localStream.getAudioTracks().forEach(track => {
+      track.enabled = !track.enabled;
     });
-
-  });
-
-  socket.emit("call-group");
-}
-
-function showAgentList(){
-let select = document.getElementById("agentSelect");
-
-select.style.display = "block";
-select.innerHTML = "";
-
-for(let id in window.lastData){
-let option = document.createElement("option");
-option.value = window.lastData[id].socketId;
-option.text = window.lastData[id].name;
-select.appendChild(option);
-}
-
-select.onchange = () => {
-socket.emit("call-user", select.value);
-};
-}
-
-socket.on("incoming", () => {
-  document.getElementById("incoming").style.display = "block";
-});
-
-function acceptCall(){
-
-  document.getElementById("incoming").style.display = "none";
-  document.getElementById("inCall").style.display = "block";
-
-
-   // 🔥 AJOUTE ICI
-  if(localStream){
-    localStream.getAudioTracks().forEach(t => t.enabled = true);
   }
-  createPeerConnection();
 }
 
+// ❌ raccrocher (local seulement)
 function hangUp(){
 
   if(peerConnection){
@@ -868,32 +688,22 @@ function hangUp(){
     peerConnection = null;
   }
 
-  currentTarget = null;
-
-  document.getElementById("incoming").style.display = "none";
   document.getElementById("inCall").style.display = "none";
-
-  socket.emit("hang");
 }
 
+// 📴 si quelqu’un raccroche (optionnel)
 socket.on("hang", () => {
-
-  console.log("📴 Appel terminé");
-
-  // 🔥 fermer connexion WebRTC
   if(peerConnection){
     peerConnection.close();
     peerConnection = null;
   }
-
-  // 🔥 reset target
-  currentTarget = null;
-
-  // UI
-  document.getElementById("incoming").style.display = "none";
   document.getElementById("inCall").style.display = "none";
-
 });
+
+// 🔥 démarrage micro
+startMicrophone();
+
 </script>
+
 </body>
 </html>

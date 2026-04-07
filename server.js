@@ -15,43 +15,26 @@ io.on("connection", (socket) => {
   // 👤 rejoindre
   socket.on("join", (data) => {
     console.log("👤 Nom :", data.name);
-
-    // notifier les autres
-    socket.broadcast.emit("user-joined");
   });
 
-  // 🔥 OFFER (ciblé)
-  socket.on("offer", (data) => {
-    io.to(data.to).emit("offer", {
-      offer: data.offer,
-      from: socket.id
-    });
-  });
-
-  // 🔥 ANSWER (ciblé)
-  socket.on("answer", (data) => {
-    io.to(data.to).emit("answer", {
-      answer: data.answer,
-      from: socket.id
-    });
-  });
-
-  // 🔥 ICE (ciblé)
-  socket.on("ice-candidate", (data) => {
-    io.to(data.to).emit("ice-candidate", {
-      candidate: data.candidate,
-      from: socket.id
-    });
-  });
-
-  // 📞 appel groupe (juste notification)
-  socket.on("call-group", () => {
+  // 📞 appel groupe (simple)
+  socket.on("call", () => {
     socket.broadcast.emit("incoming");
   });
 
-  // 📞 appel individuel
-  socket.on("call-user", (targetId) => {
-    io.to(targetId).emit("incoming");
+  // 🔥 OFFER (broadcast)
+  socket.on("offer", (offer) => {
+    socket.broadcast.emit("offer", offer);
+  });
+
+  // 🔥 ANSWER (broadcast)
+  socket.on("answer", (answer) => {
+    socket.broadcast.emit("answer", answer);
+  });
+
+  // 🔥 ICE (broadcast)
+  socket.on("ice-candidate", (candidate) => {
+    socket.broadcast.emit("ice-candidate", candidate);
   });
 
   // 📴 raccrocher
