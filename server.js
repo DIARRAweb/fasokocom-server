@@ -17,24 +17,33 @@ io.on("connection", (socket) => {
     console.log("👤 Nom :", data.name);
   });
 
-  // 📞 appel groupe (simple)
+  // 📞 appel groupe
   socket.on("call", () => {
     socket.broadcast.emit("incoming");
   });
 
-  // 🔥 OFFER (broadcast)
-  socket.on("offer", (offer) => {
-    socket.broadcast.emit("offer", offer);
+  // 🔥 OFFER (avec from)
+  socket.on("offer", (data) => {
+    socket.broadcast.emit("offer", {
+      offer: data.offer,
+      from: socket.id
+    });
   });
 
-  // 🔥 ANSWER (broadcast)
-  socket.on("answer", (answer) => {
-    socket.broadcast.emit("answer", answer);
+  // 🔥 ANSWER (avec from)
+  socket.on("answer", (data) => {
+    io.to(data.to).emit("answer", {
+      answer: data.answer,
+      from: socket.id
+    });
   });
 
-  // 🔥 ICE (broadcast)
-  socket.on("ice-candidate", (candidate) => {
-    socket.broadcast.emit("ice-candidate", candidate);
+  // 🔥 ICE (ciblé)
+  socket.on("ice-candidate", (data) => {
+    io.to(data.to).emit("ice-candidate", {
+      candidate: data.candidate,
+      from: socket.id
+    });
   });
 
   // 📴 raccrocher
