@@ -256,7 +256,7 @@ let userRef = ref(db, "users/" + userId);
 onDisconnect(userRef).remove();
 
 // ---------------- STYLES ----------------
-const normalStyle = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
+const normalStyle = "https://demotiles.maplibre.org/style.json";
 const reliefStyle = "https://tiles.stadiamaps.com/styles/outdoors.json";
 
 // Satellite + Labels (corrigé)
@@ -268,27 +268,21 @@ const satelliteStyle = {
       tiles: [
         "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
       ],
-      tileSize: 256
+      tileSize: 256,
+      attribution: "Esri"
     },
     labels: {
       type: "raster",
       tiles: [
         "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
       ],
-      tileSize: 256
+      tileSize: 256,
+      attribution: "Esri Labels"
     }
   },
   layers: [
-    {
-      id: "satellite-layer",
-      type: "raster",
-      source: "satellite"
-    },
-    {
-      id: "labels-layer",
-      type: "raster",
-      source: "labels"
-    }
+    { id: "satellite-layer", type: "raster", source: "satellite" },
+    { id: "labels-layer", type: "raster", source: "labels" }
   ]
 };
 
@@ -594,23 +588,20 @@ async function startMicrophone(){
 }
 
 // 🔗 connexion
-// 🔥 STOCKER PLUSIEURS CONNEXIONS
-let peerConnections = {};
+function createPeerConnection(){
 
-// 🔗 connexion MULTI
-function createPeerConnection(socketId){
+  if(peerConnection){
+    peerConnection.close();
+  }
 
-  // 🔥 créer une connexion pour chaque utilisateur
-  const pc = new RTCPeerConnection(config);
+  peerConnection = new RTCPeerConnection(config);
 
-  // envoyer audio
   localStream.getTracks().forEach(track => {
-    pc.addTrack(track, localStream);
+    peerConnection.addTrack(track, localStream);
   });
 
-  // recevoir audio
-  pc.ontrack = (event) => {
-    console.log("🔊 Audio reçu de :", socketId);
+  peerConnection.ontrack = (event) => {
+    console.log("🔊 Audio reçu");
 
     let audio = document.createElement("audio");
     audio.srcObject = event.streams[0];
@@ -620,20 +611,11 @@ function createPeerConnection(socketId){
     document.body.appendChild(audio);
   };
 
-  // ICE
-  pc.onicecandidate = (event) => {
+  peerConnection.onicecandidate = (event) => {
     if(event.candidate){
-      socket.emit("ice-candidate", {
-        candidate: event.candidate,
-        to: socketId
-      });
+      socket.emit("ice-candidate", event.candidate);
     }
   };
-
-  // 🔥 stocker la connexion
-  peerConnections[socketId] = pc;
-
-  return pc;
 }
 
 // 📞 appeler tout le monde
@@ -652,90 +634,41 @@ async function acceptCall(){
   document.getElementById("incoming").style.display = "none";
   document.getElementById("inCall").style.display = "block";
 
-  // 🔥 activer micro
-  if(localStream){
-    localStream.getAudioTracks().forEach(t => t.enabled = true);
-  }
+  createPeerConnection();
 
-  // 🔥 créer connexion avec tous les autres
-  for(let id in window.lastData){
+  let offer = await peerConnection.createOffer();
+  await peerConnection.setLocalDescription(offer);
 
-    let targetId = window.lastData[id].socketId;
-
-    if(targetId && targetId !== socket.id){
-
-      const pc = createPeerConnection(targetId);
-
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-
-      socket.emit("offer", {
-        offer: offer,
-        to: targetId
-      });
-
-    }
-  }
+  socket.emit("offer", offer);
 }
 
 // 📩 recevoir offer
-socket.on("offer", async (data) => {
+socket.on("offer", async (offer) => {
 
-  const from = data.from;
-  const offer = data.offer;
+  createPeerConnection();
 
-  console.log("📩 Offre reçue de :", from);
-
-  const pc = createPeerConnection(from);
-
-  await pc.setRemoteDescription(
+  await peerConnection.setRemoteDescription(
     new RTCSessionDescription(offer)
   );
 
-  const answer = await pc.createAnswer();
-  await pc.setLocalDescription(answer);
+  let answer = await peerConnection.createAnswer();
+  await peerConnection.setLocalDescription(answer);
 
-  socket.emit("answer", {
-    answer: answer,
-    to: from
-  });
-
+  socket.emit("answer", answer);
 });
 
 // 📩 recevoir answer
-socket.on("answer", async (data) => {
-
-  const from = data.from;
-  const answer = data.answer;
-
-  console.log("✅ Réponse de :", from);
-
-  const pc = peerConnections[from];
-
-  if(pc){
-    await pc.setRemoteDescription(
-      new RTCSessionDescription(answer)
-    );
-  }
-
+socket.on("answer", async (answer) => {
+  await peerConnection.setRemoteDescription(
+    new RTCSessionDescription(answer)
+  );
 });
 
 // 📩 ICE
-socket.on("ice-candidate", async (data) => {
-
-  const from = data.from;
-  const candidate = data.candidate;
-
-  const pc = peerConnections[from];
-
-  if(pc){
-    try{
-      await pc.addIceCandidate(candidate);
-    }catch(e){
-      console.log("Erreur ICE", e);
-    }
-  }
-
+socket.on("ice-candidate", async (candidate) => {
+  try{
+    await peerConnection.addIceCandidate(candidate);
+  }catch(e){}
 });
 
 // 🎤 pause micro
