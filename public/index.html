@@ -36,7 +36,7 @@ button{
   margin:10px;
   border:none;
   border-radius:14px;
-  background:linear-gradient(135deg, rgba(0,255,156,0.95), rgba(0,180,255,0.9));
+  background:linear-gradient(135deg, rgba(0,255,156,0.95), rgba(0,200,83,0.95));
   color:black;
   font-weight:bold;
   cursor:pointer;
@@ -227,6 +227,9 @@ button[onclick="toggleMute()"]{ background:#ffab00; color:black; }
 </div> <!-- FIN controlPanel -->
 
 </div> <!-- FIN overlay -->
+<div id="audioContainer" style="display:none;"></div>
+<div id="adminPanel" style="display:none;"></div>
+
 
 <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
 
@@ -256,36 +259,41 @@ let userRef = ref(db, "users/" + userId);
 onDisconnect(userRef).remove();
 
 // ---------------- STYLES ----------------
-const normalStyle = "https://demotiles.maplibre.org/style.json";
+const normalStyle = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
 const reliefStyle = "https://tiles.stadiamaps.com/styles/outdoors.json";
 
 // Satellite + Labels (corrigé)
 const satelliteStyle = {
-  version: 8,
-  sources: {
-    satellite: {
-      type: "raster",
-      tiles: [
-        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-      ],
-      tileSize: 256,
-      attribution: "Esri"
-    },
-    labels: {
-      type: "raster",
-      tiles: [
-        "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
-      ],
-      tileSize: 256,
-      attribution: "Esri Labels"
-    }
-  },
-  layers: [
-    { id: "satellite-layer", type: "raster", source: "satellite" },
-    { id: "labels-layer", type: "raster", source: "labels" }
-  ]
+version: 8,
+sources: {
+satellite: {
+type: "raster",
+tiles: [
+"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+],
+tileSize: 256
+},
+labels: {
+type: "raster",
+tiles: [
+"https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+],
+tileSize: 256
+}
+},
+layers: [
+{
+id: "satellite-layer",
+type: "raster",
+source: "satellite"
+},
+{
+id: "labels-layer",
+type: "raster",
+source: "labels"
+}
+]
 };
-
 // ---------------- MAP ----------------
 let map = new maplibregl.Map({
   container: "map",
@@ -297,7 +305,6 @@ let map = new maplibregl.Map({
 // Zoom + boussole + rotation
 map.addControl(new maplibregl.NavigationControl(), "top-right");
 map.addControl(new maplibregl.FullscreenControl(), "top-right");
-
 
 // ---------------- MENU STYLES ----------------
 let menu = document.createElement("div");
@@ -386,7 +393,7 @@ function updateMarker(id, lat, lon, popupText) {
 
 // Recharger markers après changement de style
 function reloadMarkers() {
-  if (!lastData) return;
+  if (!window.lastData) return;
 
   for (let id in markers) {
     markers[id].remove();
@@ -470,12 +477,14 @@ navigator.geolocation.watchPosition((pos) => {
   if (accuracy > 50) return;
 
 set(userRef, {
-  name: window.fullName,
+  name: window.fullName || "Agent",
   socketId: window.socketId || null,
+  status: "online",
   latitude: lat,
   longitude: lon,
   accuracy: accuracy,
   timestamp: Date.now()
+  
 });
 
 }, (err) => {
@@ -491,7 +500,7 @@ onValue(ref(db, "users"), (snapshot) => {
   const data = snapshot.val();
   if (!data) return;
 
-  window.lastData = data;
+  window.usersList = data;
 
   // compteur
   document.getElementById("agentCount").innerText = Object.keys(data).length;
@@ -550,6 +559,7 @@ onValue(ref(db, "users"), (snapshot) => {
 });
 </script>
 
+
 <script src="/socket.io/socket.io.js"></script>
 <script>
 
@@ -568,7 +578,7 @@ socket.on("connect", () => {
 // ---------------- WEBRTC ----------------
 
 let localStream;
-let peerConnection;
+let peerConnections = {};
 
 const config = {
   iceServers: [
@@ -584,24 +594,29 @@ const config = {
 // 🎤 micro
 async function startMicrophone(){
   localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  console.log("🎤 Micro prêt");
+
+  // 🔥 couper le micro au départ
+  localStream.getAudioTracks().forEach(track => track.enabled = false);
+
+  console.log("🎤 Micro prêt (coupé)");
 }
 
-// 🔗 connexion
-function createPeerConnection(){
+// 🔗 connexion MULTI
+function createPeerConnection(socketId){
 
-  if(peerConnection){
-    peerConnection.close();
+  // 🔥 créer connexion
+  const pc = new RTCPeerConnection(config);
+
+  // 🔥 envoyer audio
+  if(localStream){
+    localStream.getTracks().forEach(track => {
+      pc.addTrack(track, localStream);
+    });
   }
 
-  peerConnection = new RTCPeerConnection(config);
-
-  localStream.getTracks().forEach(track => {
-    peerConnection.addTrack(track, localStream);
-  });
-
-  peerConnection.ontrack = (event) => {
-    console.log("🔊 Audio reçu");
+  // 🔥 recevoir audio
+  pc.ontrack = (event) => {
+    console.log("🔊 Audio reçu de :", socketId);
 
     let audio = document.createElement("audio");
     audio.srcObject = event.streams[0];
@@ -611,11 +626,20 @@ function createPeerConnection(){
     document.body.appendChild(audio);
   };
 
-  peerConnection.onicecandidate = (event) => {
+  // 🔥 ICE
+  pc.onicecandidate = (event) => {
     if(event.candidate){
-      socket.emit("ice-candidate", event.candidate);
+      socket.emit("ice-candidate", {
+        candidate: event.candidate,
+        to: socketId
+      });
     }
   };
+
+  // 🔥 stocker
+  peerConnections[socketId] = pc;
+
+  return pc;
 }
 
 // 📞 appeler tout le monde
@@ -634,41 +658,90 @@ async function acceptCall(){
   document.getElementById("incoming").style.display = "none";
   document.getElementById("inCall").style.display = "block";
 
-  createPeerConnection();
+  // 🔥 activer micro
+  if(localStream){
+    localStream.getAudioTracks().forEach(t => t.enabled = true);
+  }
 
-  let offer = await peerConnection.createOffer();
-  await peerConnection.setLocalDescription(offer);
+  // 🔥 créer connexion avec tous les autres
+  for(let id in window.lastData){
 
-  socket.emit("offer", offer);
+    let targetId = window.lastData[id].socketId;
+
+    if(targetId && targetId !== socket.id){
+
+      const pc = createPeerConnection(targetId);
+
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      socket.emit("offer", {
+        offer: offer,
+        to: targetId
+      });
+
+    }
+  }
 }
 
 // 📩 recevoir offer
-socket.on("offer", async (offer) => {
+socket.on("offer", async (data) => {
 
-  createPeerConnection();
+  const from = data.from;
+  const offer = data.offer;
 
-  await peerConnection.setRemoteDescription(
+  console.log("📩 Offre reçue de :", from);
+
+  const pc = createPeerConnection(from);
+
+  await pc.setRemoteDescription(
     new RTCSessionDescription(offer)
   );
 
-  let answer = await peerConnection.createAnswer();
-  await peerConnection.setLocalDescription(answer);
+  const answer = await pc.createAnswer();
+  await pc.setLocalDescription(answer);
 
-  socket.emit("answer", answer);
+  socket.emit("answer", {
+    answer: answer,
+    to: from
+  });
+
 });
 
 // 📩 recevoir answer
-socket.on("answer", async (answer) => {
-  await peerConnection.setRemoteDescription(
-    new RTCSessionDescription(answer)
-  );
+socket.on("answer", async (data) => {
+
+  const from = data.from;
+  const answer = data.answer;
+
+  console.log("✅ Réponse de :", from);
+
+  const pc = peerConnections[from];
+
+  if(pc){
+    await pc.setRemoteDescription(
+      new RTCSessionDescription(answer)
+    );
+  }
+
 });
 
 // 📩 ICE
-socket.on("ice-candidate", async (candidate) => {
-  try{
-    await peerConnection.addIceCandidate(candidate);
-  }catch(e){}
+socket.on("ice-candidate", async (data) => {
+
+  const from = data.from;
+  const candidate = data.candidate;
+
+  const pc = peerConnections[from];
+
+  if(pc){
+    try{
+      await pc.addIceCandidate(candidate);
+    }catch(e){
+      console.log("Erreur ICE", e);
+    }
+  }
+
 });
 
 // 🎤 pause micro
@@ -683,20 +756,25 @@ function toggleMute(){
 // ❌ raccrocher (local seulement)
 function hangUp(){
 
-  if(peerConnection){
-    peerConnection.close();
-    peerConnection = null;
+  for(let id in peerConnections){
+    peerConnections[id].close();
   }
 
+  peerConnections = {};
+
   document.getElementById("inCall").style.display = "none";
+
+  socket.emit("hang");
 }
 
 // 📴 si quelqu’un raccroche (optionnel)
 socket.on("hang", () => {
-  if(peerConnection){
-    peerConnection.close();
-    peerConnection = null;
+  for(let id in peerConnections){
+    peerConnections[id].close();
   }
+
+  peerConnections = {};
+
   document.getElementById("inCall").style.display = "none";
 });
 
