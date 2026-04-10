@@ -36,7 +36,7 @@ button{
   margin:10px;
   border:none;
   border-radius:14px;
-  background:linear-gradient(135deg, rgba(0,255,156,0.95), rgba(0,200,83,0.95));
+  background:linear-gradient(135deg, rgba(0,255,156,0.95), rgba(0,180,255,0.9));
   color:black;
   font-weight:bold;
   cursor:pointer;
@@ -191,6 +191,7 @@ button[onclick="toggleMute()"]{ background:#ffab00; color:black; }
 <body>
 <div class="overlay">
   <h1>🇲🇱 FASOKOCOM</h1>
+  <p id="status">🟢 Connecté</p>
   <p>Carte tactique en temps réel</p>
 
   <button onclick="showPosition()">📍 MA POSITION</button>
@@ -215,6 +216,7 @@ button[onclick="toggleMute()"]{ background:#ffab00; color:black; }
 
   <!-- 📲 Appel entrant -->
   <div id="incoming" style="display:none;">
+<p>📞 Appel entrant...</p>
     <button onclick="acceptCall()">✅ Décrocher</button>
   </div>
 
@@ -227,9 +229,18 @@ button[onclick="toggleMute()"]{ background:#ffab00; color:black; }
 </div> <!-- FIN controlPanel -->
 
 </div> <!-- FIN overlay -->
-<div id="audioContainer" style="display:none;"></div>
+<div id="audioContainer"></div>
 <div id="adminPanel" style="display:none;"></div>
+<div id="debug" style="position:fixed; bottom:0; left:0; background:black; color:#00ff9c; padding:5px; font-size:12px;"></div>
 
+<script>
+window.fullName = prompt("Nom + Grade") || "Agent";
+window.userType = prompt("Type (agent / moto / vehicule / helico / chasseur)") || "agent";
+</script>
+
+<script>
+document.getElementById("debug").innerText = "✅ HTML chargé";
+</script>
 
 <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
 
@@ -264,37 +275,37 @@ const reliefStyle = "https://tiles.stadiamaps.com/styles/outdoors.json";
 
 // Satellite + Labels (corrigé)
 const satelliteStyle = {
-version: 8,
-sources: {
-satellite: {
-type: "raster",
-tiles: [
-"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-],
-tileSize: 256
-},
-labels: {
-type: "raster",
-tiles: [
-"https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
-],
-tileSize: 256
-}
-},
-layers: [
-{
-id: "satellite-layer",
-type: "raster",
-source: "satellite"
-},
-{
-id: "labels-layer",
-type: "raster",
-source: "labels"
-}
-]
+  version: 8,
+  sources: {
+    satellite: {
+      type: "raster",
+      tiles: [
+        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+      ],
+      tileSize: 256
+    },
+    labels: {
+      type: "raster",
+      tiles: [
+        "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Reference_Overlay/MapServer/tile/{z}/{y}/{x}"
+      ],
+      tileSize: 256
+    }
+  },
+  layers: [
+    {
+      id: "satellite-layer",
+      type: "raster",
+      source: "satellite"
+    },
+    {
+      id: "labels-layer",
+      type: "raster",
+      source: "labels"
+    }
+  ]
 };
-// ---------------- MAP ----------------
+
 let map = new maplibregl.Map({
   container: "map",
   style: normalStyle,
@@ -361,29 +372,66 @@ document.getElementById("styleRelief").onclick = () => {
 let markers = {};
 window.lastData = {};
 
-function updateMarker(id, lat, lon, popupText) {
-  let markerColor = (id === userId) ? "#00ff9c" : "red";
+function updateMarker(id, lat, lon, popupText, user){
+  if(!user) return;
 
   if (markers[id]) {
     markers[id].setLngLat([lon, lat]);
     markers[id].getPopup().setHTML(popupText);
   } else {
-    let popup = new maplibregl.Popup({ offset: 25 }).setHTML(popupText);
+
+    let popup = new maplibregl.Popup({
+      offset: 25,
+      closeButton: false
+    }).setHTML(popupText);
 
     let el = document.createElement("div");
-    el.style.width = "18px";
-    el.style.height = "18px";
-    el.style.borderRadius = "50%";
-    el.style.backgroundColor = markerColor;
-    el.style.border = "2px solid white";
-    el.style.cursor = "pointer";
 
-    markers[id] = new maplibregl.Marker({ element: el })
-      .setLngLat([lon, lat])
-      .setPopup(popup)
-      .addTo(map);
+    // =========================
+    // 👤 AGENT / CHEF (points propres)
+    // =========================
+    if(user.type === "agent" || user.type === "chef"){
 
-    // ouverture popup mobile
+      let color = (id === userId) ? "#00ff00" : "red";
+
+      el.style.width = user.type === "chef" ? "10px" : "8px";
+      el.style.height = user.type === "chef" ? "10px" : "8px";
+      el.style.borderRadius = "50%";
+      el.style.backgroundColor = color;
+      el.style.border = "2px solid white";
+      el.style.cursor = "pointer";
+
+      // ✅ PAS de transform compliqué
+      // animation simple sans casser la position
+      el.style.boxShadow = "0 0 8px " + color;
+
+    }
+
+    // =========================
+    // 🚁 🚓 🏍️ ✈️ ENGINS
+    // =========================
+    else {
+      let emoji = "🚓";
+      if(user.type === "moto") emoji = "🏍️";
+      if(user.type === "vehicule") emoji = "🚓";
+      if(user.type === "helico") emoji = "🚁";
+      if(user.type === "chasseur") emoji = "✈️";
+
+      el.innerHTML = emoji;
+      el.style.fontSize = "24px";
+      el.style.cursor = "pointer";
+    }
+
+    // =========================
+    // AJOUT MARKER
+    // =========================
+    markers[id] = new maplibregl.Marker({
+      element: el
+    })
+    .setLngLat([lon, lat])
+    .setPopup(popup)
+    .addTo(map);
+
     el.addEventListener("click", (e) => {
       e.stopPropagation();
       popup.addTo(map);
@@ -400,16 +448,16 @@ function reloadMarkers() {
     delete markers[id];
   }
 
-  for (let id in lastData) {
-    let user = lastData[id];
-    if (!user.latitude || !user.longitude) continue;
+  for (let id in window.lastData) {
+    let user = window.lastData[id];
+    if (user.latitude == null || user.longitude == null) continue;
 
     let displayName = user.name || "Agent";
     let popupText =
-      "<b>" + displayName + "</b><br>Précision: " +
-      Math.round(user.accuracy || 0) + " m";
+"<b>" + displayName + "</b><br>Précision: " +
+Math.round(user.accuracy || 0) + " m";
 
-    updateMarker(id, user.latitude, user.longitude, popupText);
+    updateMarker(id, user.latitude, user.longitude, popupText, user);
   }
 }
 
@@ -469,6 +517,7 @@ window.showMap = function () {
 };
 
 // ---------------- TRACKING + ENVOI FIREBASE ----------------
+
 navigator.geolocation.watchPosition((pos) => {
   let lat = pos.coords.latitude;
   let lon = pos.coords.longitude;
@@ -478,6 +527,7 @@ navigator.geolocation.watchPosition((pos) => {
 
 set(userRef, {
   name: window.fullName || "Agent",
+  type: window.userType || "agent",
   socketId: window.socketId || null,
   status: "online",
   latitude: lat,
@@ -500,7 +550,7 @@ onValue(ref(db, "users"), (snapshot) => {
   const data = snapshot.val();
   if (!data) return;
 
-  window.usersList = data;
+  window.lastData = data;
 
   // compteur
   document.getElementById("agentCount").innerText = Object.keys(data).length;
@@ -554,234 +604,14 @@ onValue(ref(db, "users"), (snapshot) => {
       "<b>" + displayName + "</b><br>Précision: " +
       Math.round(user.accuracy || 0) + " m";
 
-    updateMarker(id, user.latitude, user.longitude, popupText);
+    updateMarker(id, user.latitude, user.longitude, popupText, user);
   }
 });
 </script>
 
 
-<script src="/socket.io/socket.io.js"></script>
-<script>
-
-const socket = io();
-
-// 🔥 infos globales
-window.socketId = null;
-window.fullName = prompt("Nom + Grade") || "Agent";
-
-// connexion
-socket.on("connect", () => {
-  window.socketId = socket.id;
-  socket.emit("join", { name: window.fullName });
-});
-
-// ---------------- WEBRTC ----------------
-
-let localStream;
-let peerConnections = {};
-
-const config = {
-  iceServers: [
-    { urls: "stun:stun.relay.metered.ca:80" },
-    {
-      urls: "turn:global.relay.metered.ca:80",
-      username: "281ef9ce632cfee31624cbbf",
-      credential: "dz8EPE920FbhBmoz"
-    }
-  ]
-};
-
-// 🎤 micro
-async function startMicrophone(){
-  localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-  // 🔥 couper le micro au départ
-  localStream.getAudioTracks().forEach(track => track.enabled = false);
-
-  console.log("🎤 Micro prêt (coupé)");
-}
-
-// 🔗 connexion MULTI
-function createPeerConnection(socketId){
-
-  // 🔥 créer connexion
-  const pc = new RTCPeerConnection(config);
-
-  // 🔥 envoyer audio
-  if(localStream){
-    localStream.getTracks().forEach(track => {
-      pc.addTrack(track, localStream);
-    });
-  }
-
-  // 🔥 recevoir audio
-  pc.ontrack = (event) => {
-    console.log("🔊 Audio reçu de :", socketId);
-
-    let audio = document.createElement("audio");
-    audio.srcObject = event.streams[0];
-    audio.autoplay = true;
-    audio.playsInline = true;
-
-    document.body.appendChild(audio);
-  };
-
-  // 🔥 ICE
-  pc.onicecandidate = (event) => {
-    if(event.candidate){
-      socket.emit("ice-candidate", {
-        candidate: event.candidate,
-        to: socketId
-      });
-    }
-  };
-
-  // 🔥 stocker
-  peerConnections[socketId] = pc;
-
-  return pc;
-}
-
-// 📞 appeler tout le monde
-function startCall(){
-  socket.emit("call");
-}
-
-// 📲 recevoir appel
-socket.on("incoming", () => {
-  document.getElementById("incoming").style.display = "block";
-});
-
-// ✅ décrocher
-async function acceptCall(){
-
-  document.getElementById("incoming").style.display = "none";
-  document.getElementById("inCall").style.display = "block";
-
-  // 🔥 activer micro
-  if(localStream){
-    localStream.getAudioTracks().forEach(t => t.enabled = true);
-  }
-
-  // 🔥 créer connexion avec tous les autres
-  for(let id in window.lastData){
-
-    let targetId = window.lastData[id].socketId;
-
-    if(targetId && targetId !== socket.id){
-
-      const pc = createPeerConnection(targetId);
-
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-
-      socket.emit("offer", {
-        offer: offer,
-        to: targetId
-      });
-
-    }
-  }
-}
-
-// 📩 recevoir offer
-socket.on("offer", async (data) => {
-
-  const from = data.from;
-  const offer = data.offer;
-
-  console.log("📩 Offre reçue de :", from);
-
-  const pc = createPeerConnection(from);
-
-  await pc.setRemoteDescription(
-    new RTCSessionDescription(offer)
-  );
-
-  const answer = await pc.createAnswer();
-  await pc.setLocalDescription(answer);
-
-  socket.emit("answer", {
-    answer: answer,
-    to: from
-  });
-
-});
-
-// 📩 recevoir answer
-socket.on("answer", async (data) => {
-
-  const from = data.from;
-  const answer = data.answer;
-
-  console.log("✅ Réponse de :", from);
-
-  const pc = peerConnections[from];
-
-  if(pc){
-    await pc.setRemoteDescription(
-      new RTCSessionDescription(answer)
-    );
-  }
-
-});
-
-// 📩 ICE
-socket.on("ice-candidate", async (data) => {
-
-  const from = data.from;
-  const candidate = data.candidate;
-
-  const pc = peerConnections[from];
-
-  if(pc){
-    try{
-      await pc.addIceCandidate(candidate);
-    }catch(e){
-      console.log("Erreur ICE", e);
-    }
-  }
-
-});
-
-// 🎤 pause micro
-function toggleMute(){
-  if(localStream){
-    localStream.getAudioTracks().forEach(track => {
-      track.enabled = !track.enabled;
-    });
-  }
-}
-
-// ❌ raccrocher (local seulement)
-function hangUp(){
-
-  for(let id in peerConnections){
-    peerConnections[id].close();
-  }
-
-  peerConnections = {};
-
-  document.getElementById("inCall").style.display = "none";
-
-  socket.emit("hang");
-}
-
-// 📴 si quelqu’un raccroche (optionnel)
-socket.on("hang", () => {
-  for(let id in peerConnections){
-    peerConnections[id].close();
-  }
-
-  peerConnections = {};
-
-  document.getElementById("inCall").style.display = "none";
-});
-
-// 🔥 démarrage micro
-startMicrophone();
-
-</script>
 
 </body>
 </html>
+
+
