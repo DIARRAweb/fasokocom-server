@@ -1,6 +1,7 @@
 import express from "express";
 import http from "http";
 import { Server } from "socket.io";
+import { AccessToken } from "livekit-server-sdk";
 
 const app = express();
 const server = http.createServer(app);
@@ -8,36 +9,59 @@ const io = new Server(server);
 
 app.use(express.static("public"));
 
-io.on("connection", (socket) => {
+// ============================
+// 🔐 LIVEKIT CONFIG
+// ============================
+const LIVEKIT_API_KEY=APIJwBBDzoTUasX;
+const LIVEKIT_API_SECRET=Cv79QvwIffUYbbyzTFdUsONY5vQSVJF5qbzfsjsKOWUB;
 
+// ============================
+// 🎫 TOKEN LIVEKIT
+// ============================
+app.get("/token", (req, res) => {
+  const room = req.query.room || "faso-room";
+  const identity = req.query.user || "agent_" + Math.floor(Math.random() * 1000);
+
+  const at = new AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, {
+    identity: identity,
+  });
+
+  at.addGrant({
+    roomJoin: true,
+    room: room,
+    canPublish: true,
+    canSubscribe: true,
+  });
+
+  res.send(at.toJwt());
+});
+
+// ============================
+// 🔌 SOCKET.IO (optionnel)
+// ============================
+io.on("connection", (socket) => {
   console.log("✅ Connecté :", socket.id);
 
-  // 👤 rejoindre
   socket.on("join", (data) => {
     console.log("👤 Nom :", data.name);
   });
 
-  // 📞 appel groupe (simple)
   socket.on("call", () => {
     socket.broadcast.emit("incoming");
   });
 
-  // 🔥 OFFER (broadcast)
   socket.on("offer", (offer) => {
     socket.broadcast.emit("offer", offer);
   });
 
-  // 🔥 ANSWER (broadcast)
   socket.on("answer", (answer) => {
     socket.broadcast.emit("answer", answer);
   });
 
-  // 🔥 ICE (broadcast)
   socket.on("ice-candidate", (candidate) => {
     socket.broadcast.emit("ice-candidate", candidate);
   });
 
-  // 📴 raccrocher
   socket.on("hang", () => {
     socket.broadcast.emit("hang");
   });
@@ -45,9 +69,11 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     console.log("❌ Déconnecté :", socket.id);
   });
-
 });
 
+// ============================
+// 🚀 SERVER START
+// ============================
 const PORT = process.env.PORT || 3000;
 
 server.listen(PORT, () => {

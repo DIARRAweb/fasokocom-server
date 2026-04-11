@@ -611,7 +611,6 @@ onValue(ref(db, "users"), (snapshot) => {
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-
 const socket = io();
 
 // 🔥 infos globales
@@ -623,146 +622,60 @@ socket.on("connect", () => {
   window.socketId = socket.id;
   socket.emit("join", { name: window.fullName });
 });
-
-// ---------------- WEBRTC ----------------
-
-let localStream;
-let peerConnection;
-
-const config = {
-  iceServers: [
-    { urls: "stun:stun.relay.metered.ca:80" },
-    {
-      urls: "turn:global.relay.metered.ca:80",
-      username: "281ef9ce632cfee31624cbbf",
-      credential: "dz8EPE920FbhBmoz"
-    }
-  ]
-};
-
-// 🎤 micro
-async function startMicrophone(){
-  localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  console.log("🎤 Micro prêt");
-}
-
-// 🔗 connexion
-function createPeerConnection(){
-
-  if(peerConnection){
-    peerConnection.close();
-  }
-
-  peerConnection = new RTCPeerConnection(config);
-
-  localStream.getTracks().forEach(track => {
-    peerConnection.addTrack(track, localStream);
-  });
-
-  peerConnection.ontrack = (event) => {
-    console.log("🔊 Audio reçu");
-
-    let audio = document.createElement("audio");
-    audio.srcObject = event.streams[0];
-    audio.autoplay = true;
-    audio.playsInline = true;
-
-    document.body.appendChild(audio);
-  };
-
-  peerConnection.onicecandidate = (event) => {
-    if(event.candidate){
-      socket.emit("ice-candidate", event.candidate);
-    }
-  };
-}
-
-// 📞 appeler tout le monde
-function startCall(){
-  socket.emit("call");
-}
-
-// 📲 recevoir appel
-socket.on("incoming", () => {
-  document.getElementById("incoming").style.display = "block";
-});
-
-// ✅ décrocher
-async function acceptCall(){
-
-  document.getElementById("incoming").style.display = "none";
-  document.getElementById("inCall").style.display = "block";
-
-  createPeerConnection();
-
-  let offer = await peerConnection.createOffer();
-  await peerConnection.setLocalDescription(offer);
-
-  socket.emit("offer", offer);
-}
-
-// 📩 recevoir offer
-socket.on("offer", async (offer) => {
-
-  createPeerConnection();
-
-  await peerConnection.setRemoteDescription(
-    new RTCSessionDescription(offer)
-  );
-
-  let answer = await peerConnection.createAnswer();
-  await peerConnection.setLocalDescription(answer);
-
-  socket.emit("answer", answer);
-});
-
-// 📩 recevoir answer
-socket.on("answer", async (answer) => {
-  await peerConnection.setRemoteDescription(
-    new RTCSessionDescription(answer)
-  );
-});
-
-// 📩 ICE
-socket.on("ice-candidate", async (candidate) => {
-  try{
-    await peerConnection.addIceCandidate(candidate);
-  }catch(e){}
-});
-
-// 🎤 pause micro
-function toggleMute(){
-  if(localStream){
-    localStream.getAudioTracks().forEach(track => {
-      track.enabled = !track.enabled;
-    });
-  }
-}
-
-// ❌ raccrocher (local seulement)
-function hangUp(){
-
-  if(peerConnection){
-    peerConnection.close();
-    peerConnection = null;
-  }
-
-  document.getElementById("inCall").style.display = "none";
-}
-
-// 📴 si quelqu’un raccroche (optionnel)
-socket.on("hang", () => {
-  if(peerConnection){
-    peerConnection.close();
-    peerConnection = null;
-  }
-  document.getElementById("inCall").style.display = "none";
-});
-
-// 🔥 démarrage micro
-startMicrophone();
-
-
 </script>
+
+<script src="https://unpkg.com/livekit-client/dist/livekit-client.umd.min.js"></script>
+
+<script src="https://unpkg.com/livekit-client/dist/livekit-client.umd.min.js"></script>
+
+<script>
+let room;
+let localTrack;
+
+// 📞 Appel groupe
+async function startCall() {
+  const res = await fetch("/getToken?room=faso&name=" + window.fullName);
+  const data = await res.json();
+
+  room = new LivekitClient.Room();
+
+  await room.connect("wss://fasokocom-ljsej3qt.livekit.cloud", data.token);
+
+  setupListeners();
+
+  // 🎤 micro
+  localTrack = await LivekitClient.createLocalAudioTrack();
+  await room.localParticipant.publishTrack(localTrack);
+
+  document.getElementById("status").innerText = "🔴 En appel";
+}
+
+// 🔊 écouter les autres
+function setupListeners() {
+  room.on("trackSubscribed", (track, publication, participant) => {
+    if (track.kind === "audio") {
+      const audio = new Audio();
+      track.attach(audio);
+      audio.play();
+    }
+  });
+}
+
+// ❌ raccrocher
+function hangUp() {
+  if (room) {
+    room.disconnect();
+    document.getElementById("status").innerText = "🟢 Connecté";
+  }
+}
+
+// 🎤 mute
+function toggleMute() {
+  if (localTrack) {
+    localTrack.enabled = !localTrack.enabled;
+  }
+}
+</script>
+
 </body>
 </html>
