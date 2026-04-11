@@ -626,195 +626,142 @@ socket.on("connect", () => {
 
 // ---------------- WEBRTC ----------------
 
-// =========================
-// 🎤 MICRO
-// =========================
 let localStream;
-let peerConnections = {};
+let peerConnection;
 
-async function startMicrophone(){
-  localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-  // 🔇 micro coupé au départ
-  localStream.getAudioTracks().forEach(track => track.enabled = false);
-
-  console.log("🎤 Micro prêt");
-}
-
-// =========================
-// ⚙️ CONFIG
-// =========================
 const config = {
   iceServers: [
-    { urls: "stun:stun.l.google.com:19302" }
+    { urls: "stun:stun.relay.metered.ca:80" },
+    {
+      urls: "turn:global.relay.metered.ca:80",
+      username: "281ef9ce632cfee31624cbbf",
+      credential: "dz8EPE920FbhBmoz"
+    }
   ]
 };
 
-// =========================
-// 🔗 CRÉER CONNEXION
-// =========================
-function createPeerConnection(socketId){
+// 🎤 micro
+async function startMicrophone(){
+  localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  console.log("🎤 Micro prêt");
+}
 
-  const pc = new RTCPeerConnection(config);
+// 🔗 connexion
+function createPeerConnection(){
 
-  // 🔊 recevoir audio
-  pc.ontrack = (event) => {
-    console.log("🔊 Audio reçu de :", socketId);
+  if(peerConnection){
+    peerConnection.close();
+  }
+
+  peerConnection = new RTCPeerConnection(config);
+
+  localStream.getTracks().forEach(track => {
+    peerConnection.addTrack(track, localStream);
+  });
+
+  peerConnection.ontrack = (event) => {
+    console.log("🔊 Audio reçu");
 
     let audio = document.createElement("audio");
     audio.srcObject = event.streams[0];
     audio.autoplay = true;
+    audio.playsInline = true;
 
-    document.getElementById("audioContainer").appendChild(audio);
+    document.body.appendChild(audio);
   };
 
-  // ❄️ ICE
-  pc.onicecandidate = (event) => {
+  peerConnection.onicecandidate = (event) => {
     if(event.candidate){
-      socket.emit("ice-candidate", {
-        candidate: event.candidate,
-        to: socketId
-      });
+      socket.emit("ice-candidate", event.candidate);
     }
   };
-
-  // 🔥 envoyer audio
-  localStream.getTracks().forEach(track => {
-    pc.addTrack(track, localStream);
-  });
-
-  peerConnections[socketId] = pc;
-
-  return pc;
 }
 
-// =========================
-// 📞 APPEL
-// =========================
+// 📞 appeler tout le monde
 function startCall(){
   socket.emit("call");
 }
 
-// =========================
-// 📲 RÉCEPTION APPEL
-// =========================
+// 📲 recevoir appel
 socket.on("incoming", () => {
   document.getElementById("incoming").style.display = "block";
 });
 
-// =========================
-// ✅ ACCEPTER
-// =========================
+// ✅ décrocher
 async function acceptCall(){
 
   document.getElementById("incoming").style.display = "none";
   document.getElementById("inCall").style.display = "block";
 
-  // 🔊 activer micro
-  localStream.getAudioTracks().forEach(t => t.enabled = true);
+  createPeerConnection();
 
-  for(let id in window.lastData){
+  let offer = await peerConnection.createOffer();
+  await peerConnection.setLocalDescription(offer);
 
-    let targetId = window.lastData[id].socketId;
-
-    if(targetId && targetId !== socket.id){
-
-      const pc = createPeerConnection(targetId);
-
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-
-      socket.emit("offer", {
-        offer: offer,
-        to: targetId
-      });
-    }
-  }
+  socket.emit("offer", offer);
 }
 
-// =========================
-// 📩 OFFER
-// =========================
-socket.on("offer", async (data) => {
+// 📩 recevoir offer
+socket.on("offer", async (offer) => {
 
-  const from = data.from;
+  createPeerConnection();
 
-  const pc = createPeerConnection(from);
+  await peerConnection.setRemoteDescription(
+    new RTCSessionDescription(offer)
+  );
 
-  await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+  let answer = await peerConnection.createAnswer();
+  await peerConnection.setLocalDescription(answer);
 
-  const answer = await pc.createAnswer();
-  await pc.setLocalDescription(answer);
-
-  socket.emit("answer", {
-    answer: answer,
-    to: from
-  });
+  socket.emit("answer", answer);
 });
 
-// =========================
-// 📩 ANSWER
-// =========================
-socket.on("answer", async (data) => {
-
-  const pc = peerConnections[data.from];
-
-  if(pc){
-    await pc.setRemoteDescription(
-      new RTCSessionDescription(data.answer)
-    );
-  }
+// 📩 recevoir answer
+socket.on("answer", async (answer) => {
+  await peerConnection.setRemoteDescription(
+    new RTCSessionDescription(answer)
+  );
 });
 
-// =========================
-// ❄️ ICE
-// =========================
-socket.on("ice-candidate", async (data) => {
-
-  const pc = peerConnections[data.from];
-
-  if(pc){
-    try{
-      await pc.addIceCandidate(data.candidate);
-    }catch(e){
-      console.log("Erreur ICE", e);
-    }
-  }
+// 📩 ICE
+socket.on("ice-candidate", async (candidate) => {
+  try{
+    await peerConnection.addIceCandidate(candidate);
+  }catch(e){}
 });
 
-// =========================
-// 🔇 MUTE
-// =========================
+// 🎤 pause micro
 function toggleMute(){
-  localStream.getAudioTracks().forEach(track => {
-    track.enabled = !track.enabled;
-  });
+  if(localStream){
+    localStream.getAudioTracks().forEach(track => {
+      track.enabled = !track.enabled;
+    });
+  }
 }
 
-// =========================
-// ❌ RACCROCHER
-// =========================
+// ❌ raccrocher (local seulement)
 function hangUp(){
 
-  for(let id in peerConnections){
-    peerConnections[id].close();
+  if(peerConnection){
+    peerConnection.close();
+    peerConnection = null;
   }
 
-  peerConnections = {};
-
   document.getElementById("inCall").style.display = "none";
-
-  socket.emit("hang");
 }
 
+// 📴 si quelqu’un raccroche (optionnel)
 socket.on("hang", () => {
-  hangUp();
+  if(peerConnection){
+    peerConnection.close();
+    peerConnection = null;
+  }
+  document.getElementById("inCall").style.display = "none";
 });
 
-// =========================
-// 🚀 START
-// =========================
+// 🔥 démarrage micro
 startMicrophone();
+
 
 </script>
 </body>

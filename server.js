@@ -17,41 +17,31 @@ io.on("connection", (socket) => {
     console.log("👤 Nom :", data.name);
   });
 
-  // 📞 appel groupe (notification)
+  // 📞 appel groupe (simple)
   socket.on("call", () => {
     socket.broadcast.emit("incoming");
   });
 
-  // 🔥 OFFER
-  socket.on("offer", (data) => {
-    io.to(data.to).emit("offer", {
-      offer: data.offer,
-      from: socket.id
-    });
+  // 🔥 OFFER (broadcast)
+  socket.on("offer", (offer) => {
+    socket.broadcast.emit("offer", offer);
   });
 
-  // 🔥 ANSWER
-  socket.on("answer", (data) => {
-    io.to(data.to).emit("answer", {
-      answer: data.answer,
-      from: socket.id
-    });
+  // 🔥 ANSWER (broadcast)
+  socket.on("answer", (answer) => {
+    socket.broadcast.emit("answer", answer);
   });
 
-  // ❄️ ICE CANDIDATE
-  socket.on("ice-candidate", (data) => {
-    io.to(data.to).emit("ice-candidate", {
-      candidate: data.candidate,
-      from: socket.id
-    });
+  // 🔥 ICE (broadcast)
+  socket.on("ice-candidate", (candidate) => {
+    socket.broadcast.emit("ice-candidate", candidate);
   });
 
-  // ❌ raccrocher
+  // 📴 raccrocher
   socket.on("hang", () => {
     socket.broadcast.emit("hang");
   });
 
-  // ❌ déconnexion
   socket.on("disconnect", () => {
     console.log("❌ Déconnecté :", socket.id);
   });
