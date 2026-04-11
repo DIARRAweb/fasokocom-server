@@ -17,12 +17,12 @@ io.on("connection", (socket) => {
     console.log("👤 Nom :", data.name);
   });
 
-  // 📞 appel groupe
+  // 📞 appel groupe (notification)
   socket.on("call", () => {
     socket.broadcast.emit("incoming");
   });
 
-  // 🔥 OFFER (ciblé + from)
+  // 🔥 OFFER
   socket.on("offer", (data) => {
     io.to(data.to).emit("offer", {
       offer: data.offer,
@@ -30,7 +30,7 @@ io.on("connection", (socket) => {
     });
   });
 
-  // 🔥 ANSWER (ciblé)
+  // 🔥 ANSWER
   socket.on("answer", (data) => {
     io.to(data.to).emit("answer", {
       answer: data.answer,
@@ -38,7 +38,7 @@ io.on("connection", (socket) => {
     });
   });
 
-  // 🔥 ICE (ciblé)
+  // ❄️ ICE CANDIDATE
   socket.on("ice-candidate", (data) => {
     io.to(data.to).emit("ice-candidate", {
       candidate: data.candidate,
@@ -46,7 +46,7 @@ io.on("connection", (socket) => {
     });
   });
 
-  // 📴 raccrocher
+  // ❌ raccrocher
   socket.on("hang", () => {
     socket.broadcast.emit("hang");
   });
