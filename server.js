@@ -12,15 +12,15 @@ app.use(express.static("public"));
 // ============================
 // 🔐 LIVEKIT CONFIG
 // ============================
-const LIVEKIT_API_KEY=APIJwBBDzoTUasX;
-const LIVEKIT_API_SECRET=Cv79QvwIffUYbbyzTFdUsONY5vQSVJF5qbzfsjsKOWUB;
+const LIVEKIT_API_KEY = "APIJwBBDzoTUasX";
+const LIVEKIT_API_SECRET = "Cv79QvwIffUYbbyzTFdUsONY5vQSVJF5qbzfsjsKOWUB";
 
 // ============================
 // 🎫 TOKEN LIVEKIT
 // ============================
-app.get("/token", (req, res) => {
+app.get("/getToken", (req, res) => {
   const room = req.query.room || "faso-room";
-  const identity = req.query.user || "agent_" + Math.floor(Math.random() * 1000);
+  const identity = req.query.name || "agent_" + Math.floor(Math.random() * 1000);
 
   const at = new AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, {
     identity: identity,
@@ -33,7 +33,7 @@ app.get("/token", (req, res) => {
     canSubscribe: true,
   });
 
-  res.send(at.toJwt());
+  res.json({ token: at.toJwt() });
 });
 
 // ============================
@@ -41,10 +41,6 @@ app.get("/token", (req, res) => {
 // ============================
 io.on("connection", (socket) => {
   console.log("✅ Connecté :", socket.id);
-
-  socket.on("join", (data) => {
-    console.log("👤 Nom :", data.name);
-  });
 
   socket.on("call", () => {
     socket.broadcast.emit("incoming");
@@ -75,7 +71,6 @@ io.on("connection", (socket) => {
 // 🚀 SERVER START
 // ============================
 const PORT = process.env.PORT || 3000;
-
 server.listen(PORT, () => {
   console.log("🔥 Serveur démarré sur", PORT);
 });
