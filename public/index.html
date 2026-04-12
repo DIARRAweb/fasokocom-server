@@ -628,29 +628,23 @@ let localTrack;
 // 📞 APPEL
 async function startCall() {
   try {
-    // 🔑 récupérer token
     const res = await fetch("https://fasokocom-server.onrender.com/getToken?room=faso&name=" + window.fullName);
     const data = await res.json();
 
     room = new LivekitClient.Room();
 
-    // 🔌 connexion
     await room.connect("wss://fasokocom-ljsej3qt.livekit.cloud", data.token);
-
-    console.log("✅ Connecté à LiveKit");
 
     setupListeners();
 
-    // 🎤 micro
     localTrack = await LivekitClient.createLocalAudioTrack();
     await room.localParticipant.publishTrack(localTrack);
 
     document.getElementById("status").innerText = "🔴 En appel";
-    document.getElementById("inCall").style.display = "block";
 
   } catch (err) {
-    console.error("❌ erreur :", err);
-    alert("Erreur connexion appel");
+    console.error(err);
+    alert("Erreur connexion appel : " + err.message);
   }
 }
 
