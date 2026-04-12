@@ -632,19 +632,20 @@ let room;
 // 📞 APPEL
 async function startCall() {
 try {
+
 const res = await fetch("https://fasokocom-server.onrender.com/getToken?room=faso&name=" + window.fullName);
 const data = await res.json();
 
 room = new LivekitClient.Room();
 
-// connexion
 await room.connect("wss://fasokocom-ljsej3qt.livekit.cloud", data.token);
 
-// écouter les autres
+// écouter
 setupListeners();
 
-// 🎤 activer micro
-await room.localParticipant.setMicrophoneEnabled(true);
+// 🎤 FORCER le micro (IMPORTANT)
+const track = await LivekitClient.createLocalAudioTrack();
+await room.localParticipant.publishTrack(track);
 
 document.getElementById("status").innerText = "🔴 En appel";
 
