@@ -14,9 +14,8 @@ app.use(express.static("public"));
 // ============================
 // 🔐 LIVEKIT CONFIG (SECURISÉ)
 // ============================
-const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY;
-const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET;
-
+const LIVEKIT_API_KEY = "APIJwBBDzoTUasX";
+const LIVEKIT_API_SECRET = "Cv79QvwIffUYbbyzTFdUsONY5vQSVJF5qbzfsjsKOWUB";
 // ============================
 // 🎫 TOKEN LIVEKIT
 // ============================
