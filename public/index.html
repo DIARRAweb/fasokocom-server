@@ -619,7 +619,12 @@ socket.on("connect", () => {
 </script>
 
 <!-- ✅ UNE SEULE FOIS -->
-<script src="https://unpkg.com/livekit-client/dist/livekit-client.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
+
+<script>
+console.log("LivekitClient =", window.LivekitClient); // 👈 TEST
+</script>
+
 
 <script>
 let room;
