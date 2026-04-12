@@ -631,13 +631,15 @@ async function startCall() {
     const res = await fetch("https://fasokocom-server.onrender.com/getToken?room=faso&name=" + window.fullName);
     const data = await res.json();
 
-    room = new LiveKitClient.Room();
+    // ✅ correction ici
+    room = new LivekitClient.Room();
 
     await room.connect("wss://fasokocom-ljsej3qt.livekit.cloud", data.token);
 
     setupListeners();
 
-    localTrack = await LiveKitClient.createLocalAudioTrack();
+    // 🎤 micro
+    localTrack = await LivekitClient.createLocalAudioTrack();
     await room.localParticipant.publishTrack(localTrack);
 
     document.getElementById("status").innerText = "🔴 En appel";
@@ -651,12 +653,14 @@ async function startCall() {
 // 🔊 écouter les autres
 function setupListeners() {
   room.on("trackSubscribed", (track, publication, participant) => {
+
     console.log("🔊 Audio reçu de", participant.identity);
 
     if (track.kind === "audio") {
       const audio = track.attach();
       document.getElementById("audioContainer").appendChild(audio);
     }
+
   });
 }
 
@@ -665,7 +669,6 @@ function hangUp() {
   if (room) {
     room.disconnect();
     document.getElementById("status").innerText = "🟢 Connecté";
-    document.getElementById("inCall").style.display = "none";
   }
 }
 
