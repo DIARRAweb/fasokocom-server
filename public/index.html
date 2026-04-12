@@ -631,13 +631,13 @@ async function startCall() {
     const res = await fetch("https://fasokocom-server.onrender.com/getToken?room=faso&name=" + window.fullName);
     const data = await res.json();
 
-    room = new LivekitClient.Room();
+    room = new LiveKitClient.Room();
 
     await room.connect("wss://fasokocom-ljsej3qt.livekit.cloud", data.token);
 
     setupListeners();
 
-    localTrack = await LivekitClient.createLocalAudioTrack();
+    localTrack = await LiveKitClient.createLocalAudioTrack();
     await room.localParticipant.publishTrack(localTrack);
 
     document.getElementById("status").innerText = "🔴 En appel";
