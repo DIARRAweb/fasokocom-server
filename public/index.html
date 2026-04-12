@@ -632,27 +632,25 @@ let localTrack;
 
 // 📞 APPEL
 async function startCall() {
-  try {
-    const res = await fetch("https://fasokocom-server.onrender.com/getToken?room=faso&name=" + window.fullName);
-    const data = await res.json();
+try {
+const res = await fetch("https://fasokocom-server.onrender.com/getToken?room=faso&name=" + window.fullName);
+const data = await res.json();
 
-    // ✅ correction ici
-    room = new LivekitClient.Room();
+room = new LivekitClient.Room();
 
-    await room.connect("wss://fasokocom-ljsej3qt.livekit.cloud", data.token);
+await room.connect("wss://fasokocom-ljsej3qt.livekit.cloud", data.token);
 
-    setupListeners();
+setupListeners();
 
-    // 🎤 micro
-    localTrack = await LivekitClient.createLocalAudioTrack();
-    await room.localParticipant.publishTrack(localTrack);
+// 🎤 micro activé proprement
+await room.localParticipant.setMicrophoneEnabled(true);
 
-    document.getElementById("status").innerText = "🔴 En appel";
+document.getElementById("status").innerText = "🔴 En appel";
 
-  } catch (err) {
-    console.error(err);
-    alert("Erreur connexion appel : " + err.message);
-  }
+} catch (err) {
+console.error(err);
+alert("Erreur connexion appel : " + err.message);
+}
 }
 
 // 🔊 écouter les autres
