@@ -628,7 +628,6 @@ console.log("LivekitClient =", window.LivekitClient); // 👈 TEST
 
 <script>
 let room;
-let localTrack;
 
 // 📞 APPEL
 async function startCall() {
@@ -638,11 +637,13 @@ const data = await res.json();
 
 room = new LivekitClient.Room();
 
+// connexion
 await room.connect("wss://fasokocom-ljsej3qt.livekit.cloud", data.token);
 
+// écouter les autres
 setupListeners();
 
-// 🎤 micro activé proprement
+// 🎤 activer micro
 await room.localParticipant.setMicrophoneEnabled(true);
 
 document.getElementById("status").innerText = "🔴 En appel";
@@ -655,31 +656,30 @@ alert("Erreur connexion appel : " + err.message);
 
 // 🔊 écouter les autres
 function setupListeners() {
-  room.on("trackSubscribed", (track, publication, participant) => {
+room.on("trackSubscribed", (track, publication, participant) => {
+console.log("🔊 Audio reçu de", participant.identity);
 
-    console.log("🔊 Audio reçu de", participant.identity);
-
-    if (track.kind === "audio") {
-      const audio = track.attach();
-      document.getElementById("audioContainer").appendChild(audio);
-    }
-
-  });
+if (track.kind === "audio") {
+const audio = track.attach();
+document.getElementById("audioContainer").appendChild(audio);
+}
+});
 }
 
 // ❌ raccrocher
 function hangUp() {
-  if (room) {
-    room.disconnect();
-    document.getElementById("status").innerText = "🟢 Connecté";
-  }
+if (room) {
+room.disconnect();
+document.getElementById("status").innerText = "🟢 Connecté";
+}
 }
 
 // 🎤 mute
 function toggleMute() {
-  if (localTrack) {
-    localTrack.enabled = !localTrack.enabled;
-  }
+if (room) {
+const enabled = room.localParticipant.isMicrophoneEnabled;
+room.localParticipant.setMicrophoneEnabled(!enabled);
+}
 }
 </script>
 
