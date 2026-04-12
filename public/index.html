@@ -211,20 +211,14 @@ button[onclick="toggleMute()"]{ background:#ffab00; color:black; }
 
       <div class="controlPanel">
 
-  <!-- 📞 Appel -->
-  <button onclick="startCall()">📞 Appel</button>
+          <!-- 📞 Appel -->
+        <button onclick="startCall()">📞 Appel</button>
 
-  <!-- 📲 Appel entrant -->
-  <div id="incoming" style="display:none;">
-<p>📞 Appel entrant...</p>
-    <button onclick="acceptCall()">✅ Décrocher</button>
-  </div>
-
-  <!-- 🔊 En appel -->
-  <div id="inCall" style="display:none;">
-    <button onclick="toggleMute()">🎤 Pause</button>
-    <button onclick="hangUp()">❌ Raccrocher</button>
-  </div>
+        <!-- 🔊 En appel -->
+        <div id="inCall" style="display:none;">
+        <button onclick="toggleMute()">🎤 Mute</button>
+        <button onclick="hangUp()">❌ Raccrocher</button>
+        </div>
 
 </div> <!-- FIN controlPanel -->
 
@@ -624,39 +618,50 @@ socket.on("connect", () => {
 });
 </script>
 
-<script src="https://unpkg.com/livekit-client/dist/livekit-client.umd.min.js"></script>
-
+<!-- ✅ UNE SEULE FOIS -->
 <script src="https://unpkg.com/livekit-client/dist/livekit-client.umd.min.js"></script>
 
 <script>
 let room;
 let localTrack;
 
-// 📞 Appel groupe
+// 📞 APPEL
 async function startCall() {
-  const res = await fetch("/getToken?room=faso&name=" + window.fullName);
-  const data = await res.json();
+  try {
+    // 🔑 récupérer token
+    const res = await fetch("/getToken?room=faso&name=" + window.fullName);
+    const data = await res.json();
 
-  room = new LivekitClient.Room();
+    room = new LivekitClient.Room();
 
-  await room.connect("wss://fasokocom-ljsej3qt.livekit.cloud", data.token);
+    // 🔌 connexion
+    await room.connect("wss://fasokocom-ljsej3qt.livekit.cloud", data.token);
 
-  setupListeners();
+    console.log("✅ Connecté à LiveKit");
 
-  // 🎤 micro
-  localTrack = await LivekitClient.createLocalAudioTrack();
-  await room.localParticipant.publishTrack(localTrack);
+    setupListeners();
 
-  document.getElementById("status").innerText = "🔴 En appel";
+    // 🎤 micro
+    localTrack = await LivekitClient.createLocalAudioTrack();
+    await room.localParticipant.publishTrack(localTrack);
+
+    document.getElementById("status").innerText = "🔴 En appel";
+    document.getElementById("inCall").style.display = "block";
+
+  } catch (err) {
+    console.error("❌ erreur :", err);
+    alert("Erreur connexion appel");
+  }
 }
 
 // 🔊 écouter les autres
 function setupListeners() {
   room.on("trackSubscribed", (track, publication, participant) => {
+    console.log("🔊 Audio reçu de", participant.identity);
+
     if (track.kind === "audio") {
-      const audio = new Audio();
-      track.attach(audio);
-      audio.play();
+      const audio = track.attach();
+      document.getElementById("audioContainer").appendChild(audio);
     }
   });
 }
@@ -666,6 +671,7 @@ function hangUp() {
   if (room) {
     room.disconnect();
     document.getElementById("status").innerText = "🟢 Connecté";
+    document.getElementById("inCall").style.display = "none";
   }
 }
 

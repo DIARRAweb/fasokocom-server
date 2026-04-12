@@ -2,65 +2,52 @@ import express from "express";
 import http from "http";
 import { Server } from "socket.io";
 import { AccessToken } from "livekit-server-sdk";
+import cors from "cors";
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
+app.use(cors());
 app.use(express.static("public"));
 
 // ============================
-// 🔐 LIVEKIT CONFIG
+// 🔐 LIVEKIT CONFIG (SECURISÉ)
 // ============================
-const LIVEKIT_API_KEY = "APIJwBBDzoTUasX";
-const LIVEKIT_API_SECRET = "Cv79QvwIffUYbbyzTFdUsONY5vQSVJF5qbzfsjsKOWUB";
+const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY;
+const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET;
 
 // ============================
 // 🎫 TOKEN LIVEKIT
 // ============================
 app.get("/getToken", (req, res) => {
-  const room = req.query.room || "faso-room";
-  const identity = req.query.name || "agent_" + Math.floor(Math.random() * 1000);
+  try {
+    const room = req.query.room || "faso";
+    const identity = req.query.name || "agent_" + Math.floor(Math.random() * 1000);
 
-  const at = new AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, {
-    identity: identity,
-  });
+    const at = new AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, {
+      identity: identity,
+    });
 
-  at.addGrant({
-    roomJoin: true,
-    room: room,
-    canPublish: true,
-    canSubscribe: true,
-  });
+    at.addGrant({
+      roomJoin: true,
+      room: room,
+      canPublish: true,
+      canSubscribe: true,
+    });
 
-  res.json({ token: at.toJwt() });
+    res.json({ token: at.toJwt() });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ============================
-// 🔌 SOCKET.IO (optionnel)
+// 🔌 SOCKET.IO (OPTIONNEL)
 // ============================
 io.on("connection", (socket) => {
   console.log("✅ Connecté :", socket.id);
-
-  socket.on("call", () => {
-    socket.broadcast.emit("incoming");
-  });
-
-  socket.on("offer", (offer) => {
-    socket.broadcast.emit("offer", offer);
-  });
-
-  socket.on("answer", (answer) => {
-    socket.broadcast.emit("answer", answer);
-  });
-
-  socket.on("ice-candidate", (candidate) => {
-    socket.broadcast.emit("ice-candidate", candidate);
-  });
-
-  socket.on("hang", () => {
-    socket.broadcast.emit("hang");
-  });
 
   socket.on("disconnect", () => {
     console.log("❌ Déconnecté :", socket.id);
@@ -71,6 +58,7 @@ io.on("connection", (socket) => {
 // 🚀 SERVER START
 // ============================
 const PORT = process.env.PORT || 3000;
+
 server.listen(PORT, () => {
   console.log("🔥 Serveur démarré sur", PORT);
 });
