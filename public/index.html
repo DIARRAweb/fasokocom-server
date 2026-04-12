@@ -629,7 +629,7 @@ let localTrack;
 async function startCall() {
   try {
     // 🔑 récupérer token
-    const res = await fetch("/getToken?room=faso&name=" + window.fullName);
+    const res = await fetch("https://fasokocom-server.onrender.com/getToken?room=faso&name=" + window.fullName);
     const data = await res.json();
 
     room = new LivekitClient.Room();
