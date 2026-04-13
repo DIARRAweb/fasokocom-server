@@ -639,16 +639,21 @@ async function startCall() {
 
     room = new LivekitClient.Room();
 
+    // 🔗 connexion
     await room.connect("wss://fasokocom-ljsej3qt.livekit.cloud", data.token);
+
+    // 🔥 ATTENDRE que la room soit stable
+    await new Promise(resolve => setTimeout(resolve, 1500));
 
     setupListeners();
 
-    // 🎤 MICRO (VERSION COMPATIBLE 100%)
+    // 🎤 récupérer micro
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-    localTrack = new LivekitClient.LocalAudioTrack(stream.getTracks()[0]);
+    const track = new LivekitClient.LocalAudioTrack(stream.getTracks()[0]);
 
-    await room.localParticipant.publishTrack(localTrack);
+    // 🔥 publier APRÈS délai
+    await room.localParticipant.publishTrack(track);
 
     document.getElementById("status").innerText = "🔴 En appel";
 
