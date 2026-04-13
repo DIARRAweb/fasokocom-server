@@ -631,56 +631,61 @@ let room;
 
 // 📞 APPEL
 async function startCall() {
-try {
+  try {
+    const res = await fetch("https://fasokocom-server.onrender.com/getToken?room=faso&name=" + window.fullName);
+    const data = await res.json();
 
-const res = await fetch("https://fasokocom-server.onrender.com/getToken?room=faso&name=" + window.fullName);
-const data = await res.json();
+    room = new LivekitClient.Room();
 
-room = new LivekitClient.Room();
+    await room.connect("wss://fasokocom-ljsej3qt.livekit.cloud", data.token);
 
-await room.connect("wss://fasokocom-ljsej3qt.livekit.cloud", data.token);
+    setupListeners();
 
-// écouter
-setupListeners();
+    // 🎤 MICRO (VERSION STABLE MOBILE)
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const track = new LivekitClient.LocalAudioTrack(stream.getTracks()[0]);
 
-// 🎤 FORCER le micro (IMPORTANT)
-const track = await LivekitClient.createLocalAudioTrack();
-await room.localParticipant.publishTrack(track);
+    await room.localParticipant.publishTrack(track);
 
-document.getElementById("status").innerText = "🔴 En appel";
+    document.getElementById("status").innerText = "🔴 En appel";
 
-} catch (err) {
-console.error(err);
-alert("Erreur connexion appel : " + err.message);
-}
+  } catch (err) {
+    console.error(err);
+    alert("Erreur connexion appel : " + err.message);
+  }
 }
 
 // 🔊 écouter les autres
 function setupListeners() {
-room.on("trackSubscribed", (track, publication, participant) => {
-console.log("🔊 Audio reçu de", participant.identity);
+  room.on("trackSubscribed", (track, publication, participant) => {
 
-if (track.kind === "audio") {
-const audio = track.attach();
-document.getElementById("audioContainer").appendChild(audio);
-}
-});
+    console.log("🔊 Audio reçu de", participant.identity);
+
+    if (track.kind === "audio") {
+      const audio = track.attach(); // ✅ IMPORTANT
+      audio.autoplay = true;
+      audio.playsInline = true;
+
+      document.getElementById("audioContainer").appendChild(audio);
+    }
+
+  });
 }
 
 // ❌ raccrocher
 function hangUp() {
-if (room) {
-room.disconnect();
-document.getElementById("status").innerText = "🟢 Connecté";
-}
+  if (room) {
+    room.disconnect();
+    document.getElementById("status").innerText = "🟢 Connecté";
+  }
 }
 
 // 🎤 mute
 function toggleMute() {
-if (room) {
-const enabled = room.localParticipant.isMicrophoneEnabled;
-room.localParticipant.setMicrophoneEnabled(!enabled);
-}
+  if (room) {
+    const enabled = room.localParticipant.isMicrophoneEnabled;
+    room.localParticipant.setMicrophoneEnabled(!enabled);
+  }
 }
 </script>
 
