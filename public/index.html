@@ -666,17 +666,21 @@ async function startCall() {
 // 🔊 écouter les autres
 function setupListeners() {
 
-  // 🔊 anciens participants (TRÈS IMPORTANT)
-  room.participants.forEach(participant => {
-    participant.tracks.forEach(publication => {
-      if (publication.track && publication.track.kind === "audio") {
-        const audio = publication.track.attach();
-        audio.autoplay = true;
-        audio.playsInline = true;
-        document.getElementById("audioContainer").appendChild(audio);
+  // 🔊 anciens participants (sécurisé)
+  if (room && room.participants) {
+    room.participants.forEach(participant => {
+      if (participant.tracks) {
+        participant.tracks.forEach(publication => {
+          if (publication.track && publication.track.kind === "audio") {
+            const audio = publication.track.attach();
+            audio.autoplay = true;
+            audio.playsInline = true;
+            document.getElementById("audioContainer").appendChild(audio);
+          }
+        });
       }
     });
-  });
+  }
 
   // 🔊 nouveaux participants
   room.on("trackSubscribed", (track, publication, participant) => {
