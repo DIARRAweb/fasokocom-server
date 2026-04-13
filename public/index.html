@@ -227,6 +227,7 @@ button[onclick="toggleMute()"]{ background:#ffab00; color:black; }
 <div id="adminPanel" style="display:none;"></div>
 <div id="debug" style="position:fixed; bottom:0; left:0; background:black; color:#00ff9c; padding:5px; font-size:12px;"></div>
 
+
 <script>
 window.fullName = prompt("Nom + Grade") || "Agent";
 window.userType = prompt("Type (agent / moto / vehicule / helico / chasseur)") || "agent";
@@ -632,6 +633,13 @@ let room;
 // 📞 APPEL
 async function startCall() {
   try {
+
+    // 🔁 Évite double connexion
+    if (room) {
+      await room.disconnect();
+      room = null;
+    }
+
     const res = await fetch("https://fasokocom-server.onrender.com/getToken?room=faso&name=" + window.fullName);
     const data = await res.json();
 
@@ -641,11 +649,8 @@ async function startCall() {
 
     setupListeners();
 
-    // 🎤 MICRO (VERSION STABLE MOBILE)
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const track = new LivekitClient.LocalAudioTrack(stream.getTracks()[0]);
-
-    await room.localParticipant.publishTrack(track);
+    // 🎤 VERSION PRO (IMPORTANT 🔥)
+    await room.localParticipant.enableMicrophone();
 
     document.getElementById("status").innerText = "🔴 En appel";
 
@@ -657,25 +662,31 @@ async function startCall() {
 
 // 🔊 écouter les autres
 function setupListeners() {
+
   room.on("trackSubscribed", (track, publication, participant) => {
 
     console.log("🔊 Audio reçu de", participant.identity);
 
     if (track.kind === "audio") {
-      const audio = track.attach(); // ✅ IMPORTANT
+
+      const audio = document.createElement("audio");
       audio.autoplay = true;
       audio.playsInline = true;
 
+      track.attach(audio);
+
       document.getElementById("audioContainer").appendChild(audio);
     }
-
   });
+
 }
 
 // ❌ raccrocher
-function hangUp() {
+async function hangUp() {
   if (room) {
-    room.disconnect();
+    await room.disconnect();
+    room = null;
+
     document.getElementById("status").innerText = "🟢 Connecté";
   }
 }
