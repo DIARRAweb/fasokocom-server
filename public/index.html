@@ -619,13 +619,12 @@ socket.on("connect", () => {
 });
 </script>
 
-<!-- ✅ UNE SEULE FOIS -->
-<script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
-
 <script>
 console.log("LivekitClient =", window.LivekitClient); // 👈 TEST
 </script>
 
+<!-- ✅ UNE SEULE FOIS -->
+<script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
 
 <script>
 let room;
@@ -642,18 +641,14 @@ async function startCall() {
     // 🔗 connexion
     await room.connect("wss://fasokocom-ljsej3qt.livekit.cloud", data.token);
 
-    // 🔥 ATTENDRE que la room soit stable
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    console.log("✅ Connecté à la room");
 
+    // 🎧 écouter tout le monde
     setupListeners();
 
-    // 🎤 récupérer micro
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-    const track = new LivekitClient.LocalAudioTrack(stream.getTracks()[0]);
-
-    // 🔥 publier APRÈS délai
-    await room.localParticipant.publishTrack(track);
+    // 🎤 micro
+    localTrack = await LivekitClient.createLocalAudioTrack();
+    await room.localParticipant.publishTrack(localTrack);
 
     document.getElementById("status").innerText = "🔴 En appel";
 
@@ -663,37 +658,50 @@ async function startCall() {
   }
 }
 
-// 🔊 écouter les autres
+// 🔊 GESTION AUDIO COMPLETE
 function setupListeners() {
 
-  // 🔊 anciens participants (sécurisé)
-  if (room && room.participants) {
-    room.participants.forEach(participant => {
-      if (participant.tracks) {
-        participant.tracks.forEach(publication => {
-          if (publication.track && publication.track.kind === "audio") {
-            const audio = publication.track.attach();
-            audio.autoplay = true;
-            audio.playsInline = true;
-            document.getElementById("audioContainer").appendChild(audio);
-          }
-        });
-      }
-    });
-  }
+  // 🔥 1. PARTICIPANTS DEJA PRESENTS
+  room.participants.forEach(participant => {
+    handleParticipant(participant);
+  });
 
-  // 🔊 nouveaux participants
-  room.on("trackSubscribed", (track, publication, participant) => {
-    console.log("🔊 Audio reçu de", participant.identity);
+  // 🔥 2. NOUVEAUX PARTICIPANTS
+  room.on("participantConnected", participant => {
+    console.log("👤 Nouveau participant :", participant.identity);
+    handleParticipant(participant);
+  });
 
-    if (track.kind === "audio") {
-      const audio = track.attach();
-      audio.autoplay = true;
-      audio.playsInline = true;
-      document.getElementById("audioContainer").appendChild(audio);
+}
+
+// 🔊 gérer un participant
+function handleParticipant(participant) {
+
+  // écouter ses tracks déjà existants
+  participant.tracks.forEach(publication => {
+    if (publication.track) {
+      attachAudio(publication.track);
     }
   });
 
+  // écouter ses futurs tracks
+  participant.on("trackSubscribed", track => {
+    attachAudio(track);
+  });
+
+}
+
+// 🔊 attacher audio
+function attachAudio(track) {
+  if (track.kind === "audio") {
+    const audio = track.attach();
+    audio.autoplay = true;
+    audio.playsInline = true;
+
+    document.getElementById("audioContainer").appendChild(audio);
+
+    console.log("🔊 Audio attaché");
+  }
 }
 
 // ❌ raccrocher

@@ -12,10 +12,11 @@ app.use(cors());
 app.use(express.static("public"));
 
 // ============================
-// 🔐 LIVEKIT CONFIG (SECURISÉ)
+// 🔐 LIVEKIT CONFIG
 // ============================
 const LIVEKIT_API_KEY = "APIJwBBDzoTUasX";
 const LIVEKIT_API_SECRET = "Cv79QvwIffUYbbyzTFdUsONY5vQSVJF5qbzfsjsKOWUB";
+
 // ============================
 // 🎫 TOKEN LIVEKIT
 // ============================
@@ -38,12 +39,13 @@ app.get("/getToken", (req, res) => {
     res.json({ token: at.toJwt() });
 
   } catch (err) {
+    console.error("❌ Erreur token :", err);
     res.status(500).json({ error: err.message });
   }
 });
 
 // ============================
-// 🔌 SOCKET.IO (OPTIONNEL)
+// 🔌 SOCKET.IO
 // ============================
 io.on("connection", (socket) => {
   console.log("✅ Connecté :", socket.id);
