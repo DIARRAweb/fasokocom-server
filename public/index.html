@@ -661,12 +661,16 @@ async function startCall() {
 // 🔊 GESTION AUDIO COMPLETE
 function setupListeners() {
 
-  // 🔥 1. PARTICIPANTS DEJA PRESENTS
-  room.participants.forEach(participant => {
-    handleParticipant(participant);
-  });
+  // 🔥 attendre un peu que LiveKit charge
+  setTimeout(() => {
+    if (room && room.participants) {
+      room.participants.forEach(participant => {
+        handleParticipant(participant);
+      });
+    }
+  }, 500);
 
-  // 🔥 2. NOUVEAUX PARTICIPANTS
+  // 🔥 nouveaux participants
   room.on("participantConnected", participant => {
     console.log("👤 Nouveau participant :", participant.identity);
     handleParticipant(participant);
