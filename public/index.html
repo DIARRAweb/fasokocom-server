@@ -627,8 +627,6 @@ console.log("LivekitClient =", window.LivekitClient); // 👈 TEST
 
 <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
 
-
-
 <script>
 let room;
 let localTrack;
@@ -645,18 +643,23 @@ async function startCall() {
     await room.connect("wss://fasokocom-ljsej3qt.livekit.cloud", data.token);
     console.log("✅ connecté");
 
-    // 🎤 activer micro DIRECTEMENT (méthode officielle)
-    await room.localParticipant.setMicrophoneEnabled(true);
-
-    // 🔊 écouter les autres (SEULEMENT ça)
+    // 🔊 écouter AVANT publication
     room.on("trackSubscribed", (track, publication, participant) => {
       if (track.kind === "audio") {
         const audio = track.attach();
         audio.autoplay = true;
         audio.playsInline = true;
         document.getElementById("audioContainer").appendChild(audio);
+
+        console.log("🔊 reçu de", participant.identity);
       }
     });
+
+    // 🔥 ATTENDRE que LiveKit stabilise
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // 🎤 activer micro APRÈS
+    await room.localParticipant.setMicrophoneEnabled(true);
 
     document.getElementById("status").innerText = "🔴 En appel";
 
