@@ -624,6 +624,7 @@ console.log("LivekitClient =", window.LivekitClient); // 👈 TEST
 </script>
 
 <!-- ✅ UNE SEULE FOIS -->
+
 <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
 
 <script>
@@ -640,13 +641,12 @@ async function startCall() {
 
     // 🔗 connexion
     await room.connect("wss://fasokocom-ljsej3qt.livekit.cloud", data.token);
-
     console.log("✅ Connecté à la room");
 
     // 🎧 écouter tout le monde
     setupListeners();
 
-    // 🎤 micro
+    // 🎤 micro (PROPRE)
     localTrack = await LivekitClient.createLocalAudioTrack();
     await room.localParticipant.publishTrack(localTrack);
 
@@ -677,16 +677,18 @@ function setupListeners() {
 // 🔊 gérer un participant
 function handleParticipant(participant) {
 
-  // écouter ses tracks déjà existants
+  // 🎧 anciens tracks
   participant.tracks.forEach(publication => {
+
     if (publication.track) {
       attachAudio(publication.track);
     }
-  });
 
-  // écouter ses futurs tracks
-  participant.on("trackSubscribed", track => {
-    attachAudio(track);
+    // 🔥 track arrive plus tard
+    publication.on("subscribed", track => {
+      attachAudio(track);
+    });
+
   });
 
 }
