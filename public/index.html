@@ -627,6 +627,8 @@ console.log("LivekitClient =", window.LivekitClient); // 👈 TEST
 
 <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
 
+
+
 <script>
 let room;
 let localTrack;
@@ -641,72 +643,26 @@ async function startCall() {
 
     // 🔗 connexion
     await room.connect("wss://fasokocom-ljsej3qt.livekit.cloud", data.token);
-    console.log("✅ Connecté à la room");
+    console.log("✅ connecté");
 
-    // 🎧 écouter tout le monde
-    setupListeners();
+    // 🎤 activer micro DIRECTEMENT (méthode officielle)
+    await room.localParticipant.setMicrophoneEnabled(true);
 
-    // 🎤 micro (PROPRE)
-    localTrack = await LivekitClient.createLocalAudioTrack();
-    await room.localParticipant.publishTrack(localTrack);
+    // 🔊 écouter les autres (SEULEMENT ça)
+    room.on("trackSubscribed", (track, publication, participant) => {
+      if (track.kind === "audio") {
+        const audio = track.attach();
+        audio.autoplay = true;
+        audio.playsInline = true;
+        document.getElementById("audioContainer").appendChild(audio);
+      }
+    });
 
     document.getElementById("status").innerText = "🔴 En appel";
 
   } catch (err) {
     console.error(err);
     alert("Erreur connexion appel : " + err.message);
-  }
-}
-
-// 🔊 GESTION AUDIO COMPLETE
-function setupListeners() {
-
-  // 🔥 attendre un peu que LiveKit charge
-  setTimeout(() => {
-    if (room && room.participants) {
-      room.participants.forEach(participant => {
-        handleParticipant(participant);
-      });
-    }
-  }, 500);
-
-  // 🔥 nouveaux participants
-  room.on("participantConnected", participant => {
-    console.log("👤 Nouveau participant :", participant.identity);
-    handleParticipant(participant);
-  });
-
-}
-
-// 🔊 gérer un participant
-function handleParticipant(participant) {
-
-  // 🎧 anciens tracks
-  participant.tracks.forEach(publication => {
-
-    if (publication.track) {
-      attachAudio(publication.track);
-    }
-
-    // 🔥 track arrive plus tard
-    publication.on("subscribed", track => {
-      attachAudio(track);
-    });
-
-  });
-
-}
-
-// 🔊 attacher audio
-function attachAudio(track) {
-  if (track.kind === "audio") {
-    const audio = track.attach();
-    audio.autoplay = true;
-    audio.playsInline = true;
-
-    document.getElementById("audioContainer").appendChild(audio);
-
-    console.log("🔊 Audio attaché");
   }
 }
 
@@ -720,8 +676,9 @@ function hangUp() {
 
 // 🎤 mute
 function toggleMute() {
-  if (localTrack) {
-    localTrack.enabled = !localTrack.enabled;
+  if (room) {
+    const enabled = room.localParticipant.isMicrophoneEnabled;
+    room.localParticipant.setMicrophoneEnabled(!enabled);
   }
 }
 </script>
