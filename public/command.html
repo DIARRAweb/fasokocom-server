@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+/>
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  defer>
+</script>
+<title>FASOKOCOM - Commandement</title>
+
+<style>
+body {
+  margin: 0;
+  font-family: Arial;
+  color: white;
+
+  background: url("https://bamakomatin.com/wp-content/uploads/2025/01/20240923_121157.jpg") no-repeat center center fixed;
+  background-size: cover;
+}
+
+/* GRID PRINCIPAL */
+.container {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  grid-template-rows: 2fr 1fr 1fr auto;
+  height: 100vh;
+  gap: 6px;
+  padding: 6px;
+}
+
+.box {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+
+  border-radius: 12px;
+  padding: 10px;
+
+  border: 1px solid rgba(255,255,255,0.2);
+  color: white;
+
+  transition: 0.3s;
+}
+
+.box:hover {
+  transform: scale(1.02);
+}
+/* ZONES */
+.map { grid-column: 1 / 3; }
+.base { grid-column: 1 / 3; }
+
+h3 {
+  margin-top: 0;
+  color: #38bdf8;
+}
+
+#agentsPanel {
+  background: rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(8px);
+  border-radius: 12px;
+
+  padding: 10px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.agent {
+  background: #1e293b;
+  margin: 8px 0;
+  padding: 10px;
+  border-radius: 8px;
+}
+
+.agent h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.agent p {
+  margin: 2px 0;
+  font-size: 13px;
+}
+
+.btn-toggle {
+  margin-top: 5px;
+  padding: 5px 10px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+#map {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+#comPanel {
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  padding: 10px;
+}
+
+#comPanel button {
+  display: block;
+  width: 100%;
+  margin: 5px 0;
+  padding: 8px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+#audioLevels {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.audio-bar {
+  background: rgba(255,255,255,0.1);
+  border-radius: 6px;
+  padding: 5px;
+}
+
+.audio-bar span {
+  display: block;
+  height: 8px;
+  background: lime;
+  width: 0%;
+  border-radius: 4px;
+  transition: 0.1s;
+}
+
+#searchInput {
+  width: 70%;
+  padding: 6px;
+  border-radius: 6px;
+  border: none;
+  margin-bottom: 5px;
+}
+
+button {
+  padding: 6px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+}
+
+#map {
+  height: 300px;
+  width: 100%;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <!-- 🗺️ CARTE -->
+  <div class="box map">
+  <h3>🗺️ Carte opérationnelle</h3>
+  <input id="searchInput" placeholder="Rechercher une destination..." />
+  <button onclick="searchLocation()">🔍 Rechercher</button>
+  <div id="map" style="height:300px;"></div>
+</div>
+
+  <!-- 👥 AGENTS -->
+  <div class="box agents">
+    <h3>👥 Agents</h3>
+    <div id="agentsList"></div>
+  </div>
+
+  <!-- 📞 COMMUNICATION -->
+    <div class="box com">
+    <h3>📡 Contrôle Communication</h3>
+
+    <button onclick="startCall()">📞 Appel Global</button>
+    <button onclick="silenceRadio()">🔇 Silence Radio</button>
+
+    <h4>Gestion agents</h4>
+    <div id="comAgentsList"></div>
+  </div>
+
+  <!-- 🎤 AUDIO -->
+  <div class="box audio">
+    <h3>🎤 Activité audio</h3>
+    <div id="audioLevels"></div>
+  </div>
+
+  <!-- 🎥 VIDÉO -->
+  <div class="box video">
+    <h3>🎥 Surveillance</h3>
+    <video width="100%" controls></video>
+  </div>
+
+  <!-- 🔐 BASE -->
+  <div class="box base">
+    <h3>🔐 Personnel & équipements</h3>
+    <div id="database"></div>
+  </div>
+
+</div>
+
+<script>
+const agents = [
+  { id: 1, name: "Idrissa", grade: "Chef", active: true, lat: null, lng: null },
+  { id: 2, name: "Moussa", grade: "Agent", active: true, lat: null, lng: null },
+];
+
+function renderAgents() {
+  const container = document.getElementById("agentsList");
+  container.innerHTML = "";
+
+  agents.forEach(agent => {
+    const div = document.createElement("div");
+    div.className = "agent";
+
+    div.innerHTML = `
+      <h3>${agent.name}</h3>
+      <p>Grade : ${agent.grade}</p>
+      <p>Statut : ${agent.active ? "🟢 Actif" : "🔴 Inactif"}</p>
+      <button class="btn-toggle" onclick="toggleAgent(${agent.id})">
+        ${agent.active ? "Désactiver" : "Activer"}
+      </button>
+    `;
+
+    container.appendChild(div);
+  });
+
+}
+
+function toggleAgent(id) {
+  const agent = agents.find(a => a.id === id);
+  agent.active = !agent.active;
+
+  console.log("Agent modifié :", agent);
+
+  renderAgents();
+}
+
+
+let map;
+let markers = [];
+
+function initMap() {
+  map = L.map('map').setView([12.6392, -8.0029], 13);
+
+  console.log("MAP CREATED", map);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap'
+  }).addTo(map);
+
+  setTimeout(() => {
+    map.invalidateSize();
+  }, 500);
+}
+
+// 🔥 lancer la carte
+window.onload = function() {
+  console.log("PAGE LOADED");
+
+  initMap();
+
+  // 🔥 IMPORTANT
+  renderAgents();
+};
+
+function updateMap(agents) {
+  markers.forEach(m => map.removeLayer(m));
+  markers = [];
+
+  Object.values(agents).forEach(agent => {
+  if (!agent.lat || !agent.lng) return;
+
+  const marker = L.marker([agent.lat, agent.lng])
+    .addTo(map)
+    .bindPopup(agent.name);
+
+  markers.push(marker);
+});
+}
+
+async function searchLocation() {
+  const query = document.getElementById("searchInput").value;
+  if (!query) return;
+
+  const res = await fetch(
+    `https://nominatim.openstreetmap.org/search?format=json&countrycodes=ml&q=${query}`
+  );
+
+  const data = await res.json();
+
+  if (data.length > 0) {
+    const lat = data[0].lat;
+    const lon = data[0].lon;
+
+    map.setView([lat, lon], 15);
+
+    L.marker([lat, lon])
+      .addTo(map)
+      .bindPopup("Destination au Mali")
+      .openPopup();
+  } else {
+    alert("Lieu non trouvé au Mali");
+  }
+}
+
+</script>
+
+<script>
+// 🔇 silence radio
+function silenceRadio() {
+  if (room && localTrack) {
+    localTrack.enabled = false;
+    alert("🔇 Silence radio activé");
+  }
+}
+
+// 📞 appel global
+function startGlobalCall() {
+  startCall();
+}
+
+// 🎯 liste agents pour contrôle
+function renderComAgents() {
+  const container = document.getElementById("comAgentsList");
+  container.innerHTML = "";
+
+  agents.forEach(agent => {
+    const div = document.createElement("div");
+
+    div.innerHTML = `
+      <p>${agent.name} (${agent.grade})</p>
+      <button onclick="muteAgent(${agent.id})">🔇 Mute</button>
+      <button onclick="pauseAgent(${agent.id})">⏸️ Pause</button>
+    `;
+
+    container.appendChild(div);
+  });
+}
+
+// 🔇 mute agent (simulation pour l’instant)
+function muteAgent(id) {
+  console.log("Mute agent :", id);
+  alert("Agent " + id + " muté (simulation)");
+}
+
+// ⏸️ pause agent
+function pauseAgent(id) {
+  console.log("Pause agent :", id);
+  alert("Agent " + id + " en pause (simulation)");
+}
+
+// lancer affichage
+renderComAgents();
+</script>
+
+<script>
+function setupAudioVisualization() {
+  const container = document.getElementById("audioLevels");
+  container.innerHTML = "";
+
+  // 🔥 local (toi)
+  if (localTrack) {
+    createAudioBar("Moi", localTrack);
+  }
+
+  // 🔥 autres participants
+  if (room && room.participants) {
+  room.participants.forEach(participant => {
+    participant.audioTracks.forEach(publication => {
+      if (publication.track) {
+        createAudioBar(participant.identity, publication.track);
+      }
+    });
+  });
+}
+}
+
+// 🎤 créer barre
+function createAudioBar(name, track) {
+  const container = document.getElementById("audioLevels");
+
+  const div = document.createElement("div");
+  div.className = "audio-bar";
+
+  const label = document.createElement("p");
+  label.innerText = name;
+
+  const bar = document.createElement("span");
+
+  div.appendChild(label);
+  div.appendChild(bar);
+  container.appendChild(div);
+
+  // 🔥 simulation volume (LiveKit réel plus tard)
+  setInterval(() => {
+    const random = Math.random() * 100;
+    bar.style.width = random + "%";
+  }, 200);
+}
+</script>
+
+<script src="https://fasokocom-server.onrender.com/socket.io/socket.io.js"></script>
+<script>
+const socket = io("https://fasokocom-server.onrender.com");
+
+socket.on("positionsUpdate", (agents) => {
+  console.log("📡 POSITIONS REÇUES :", agents);
+  updateMap(agents);
+});
+</script>
+
+</body>
+</html>

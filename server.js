@@ -6,7 +6,11 @@ import cors from "cors";
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+  }
+});
 
 app.use(cors());
 app.use(express.static("public"));
@@ -45,13 +49,27 @@ app.get("/getToken", (req, res) => {
 });
 
 // ============================
-// 🔌 SOCKET.IO
+// 📍 POSITION TEMPS RÉEL
 // ============================
+let agentsPositions = {};
+
 io.on("connection", (socket) => {
-  console.log("✅ Connecté :", socket.id);
+  console.log("🟢 Agent connecté :", socket.id);
+
+  socket.on("updatePosition", (data) => {
+    console.log("📥 POSITION REÇUE :", data);
+
+    agentsPositions[socket.id] = data;
+
+    io.emit("positionsUpdate", agentsPositions);
+  });
 
   socket.on("disconnect", () => {
-    console.log("❌ Déconnecté :", socket.id);
+    delete agentsPositions[socket.id];
+
+    io.emit("positionsUpdate", agentsPositions);
+
+    console.log("🔴 Agent déconnecté :", socket.id);
   });
 });
 

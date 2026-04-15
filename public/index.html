@@ -227,6 +227,10 @@ button[onclick="toggleMute()"]{ background:#ffab00; color:black; }
 <div id="adminPanel" style="display:none;"></div>
 <div id="debug" style="position:fixed; bottom:0; left:0; background:black; color:#00ff9c; padding:5px; font-size:12px;"></div>
 
+<button id="secretBtn" onclick="goToCommand()" style="display:none; position:fixed; bottom:10px; right:10px; z-index:9999;">
+🛡️ Commandement
+</button>
+
 
 <script>
 window.fullName = prompt("Nom + Grade") || "Agent";
@@ -604,21 +608,6 @@ onValue(ref(db, "users"), (snapshot) => {
 });
 </script>
 
-<script src="/socket.io/socket.io.js"></script>
-<script>
-const socket = io();
-
-// 🔥 infos globales
-window.socketId = null;
-window.fullName = prompt("Nom + Grade") || "Agent";
-
-// connexion
-socket.on("connect", () => {
-  window.socketId = socket.id;
-  socket.emit("join", { name: window.fullName });
-});
-</script>
-
 <script>
 console.log("LivekitClient =", window.LivekitClient); // 👈 TEST
 </script>
@@ -663,6 +652,8 @@ async function startCall() {
 
     document.getElementById("status").innerText = "🔴 En appel";
 
+    setupAudioVisualization();
+
   } catch (err) {
     console.error(err);
     alert("Erreur connexion appel : " + err.message);
@@ -684,6 +675,69 @@ function toggleMute() {
     room.localParticipant.setMicrophoneEnabled(!enabled);
   }
 }
+</script>
+
+<script src="https://fasokocom-server.onrender.com/socket.io/socket.io.js"></script>
+
+<script>
+const socket = io("https://fasokocom-server.onrender.com");
+
+// 📍 envoyer position + Firebase en même temps
+navigator.geolocation.watchPosition(position => {
+  const lat = position.coords.latitude;
+  const lng = position.coords.longitude;
+  const accuracy = position.coords.accuracy;
+
+  if (accuracy > 50) return;
+
+  const data = {
+    name: window.fullName,
+    lat: lat,
+    lng: lng
+  };
+
+  console.log("📤 ENVOI SOCKET :", data);
+
+  // 🔥 Socket (commandement)
+  socket.emit("updatePosition", data);
+
+  // 🔥 Firebase (carte locale)
+  set(userRef, {
+    name: window.fullName,
+    type: window.userType,
+    latitude: lat,
+    longitude: lng,
+    accuracy: accuracy,
+    timestamp: Date.now()
+  });
+
+});
+</script>
+
+<script>
+
+// 🔥 afficher bouton après 5 clics
+let clickCount = 0;
+
+document.body.addEventListener("click", () => {
+  clickCount++;
+
+  if (clickCount === 5) {
+    document.getElementById("secretBtn").style.display = "block";
+  }
+});
+
+// 🔐 accès sécurisé
+function goToCommand() {
+  const password = prompt("Accès sécurisé 🔐");
+
+  if (password === "1234") {
+    window.location.href = "command.html";
+  } else {
+    alert("Accès refusé ❌");
+  }
+}
+
 </script>
 
 </body>
