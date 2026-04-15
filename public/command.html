@@ -2,14 +2,18 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<link
-  rel="stylesheet"
-  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-/>
-<script
-  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-  defer>
-</script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
+
+<!-- 🔥 ROUTING -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
+<script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+
+<!-- 🔥 FULLSCREEN -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet.fullscreen/Control.FullScreen.css" />
+<script src="https://unpkg.com/leaflet.fullscreen/Control.FullScreen.js"></script>
+
 <title>FASOKOCOM - Commandement</title>
 
 <style>
@@ -168,7 +172,9 @@ button {
   <h3>🗺️ Carte opérationnelle</h3>
   <input id="searchInput" placeholder="Rechercher une destination..." />
   <button onclick="searchLocation()">🔍 Rechercher</button>
-  <div id="map" style="height:300px;"></div>
+  <select id="agentSelect"></select>
+  <button onclick="createRoute()">📍 Itinéraire</button>
+  <div id="map"></div>
 </div>
 
   <!-- 👥 AGENTS -->
@@ -254,23 +260,30 @@ function initMap() {
 
   console.log("MAP CREATED", map);
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap'
-  }).addTo(map);
+  const baseMaps = {
+  "Normal": L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png'),
+  "Noir": L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_dark/{z}/{x}/{y}{r}.png'),
+  "Clair": L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png'),
+  "Relief": L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png'),
+  "Satellite (fake)": L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png')
+};
 
+baseMaps["Normal"].addTo(map);
+
+L.control.layers(baseMaps).addTo(map);
   setTimeout(() => {
     map.invalidateSize();
   }, 500);
+  map.addControl(new L.Control.Fullscreen());
 }
 
 // 🔥 lancer la carte
 window.onload = function() {
   console.log("PAGE LOADED");
-
   initMap();
 
-  // 🔥 IMPORTANT
   renderAgents();
+  populateAgentSelect(); // ✅ AJOUT ICI
 };
 
 function updateMap(agents) {
@@ -313,6 +326,56 @@ async function searchLocation() {
   }
 }
 
+function populateAgentSelect() {
+  const select = document.getElementById("agentSelect");
+  select.innerHTML = "";
+
+  agents.forEach(agent => {
+    if (agent.active) {
+      const option = document.createElement("option");
+      option.value = agent.id;
+      option.textContent = agent.name;
+      select.appendChild(option);
+    }
+  });
+}
+
+let routingControl;
+
+async function createRoute() {
+  const agentId = document.getElementById("agentSelect").value;
+  const query = document.getElementById("searchInput").value;
+
+  if (!query) return alert("Destination requise");
+
+  const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}`);
+  const data = await res.json();
+
+  if (data.length === 0) return alert("Lieu introuvable");
+
+  const agent = agents.find(a => a.id == agentId);
+
+if (!agent.lat || !agent.lng) {
+  return alert("Position de l’agent indisponible");
+}
+
+const startLat = agent.lat;
+const startLng = agent.lng;
+  const endLat = data[0].lat;
+  const endLng = data[0].lon;
+
+  if (routingControl) {
+    map.removeControl(routingControl);
+  }
+
+  routingControl = L.Routing.control({
+    waypoints: [
+      L.latLng(startLat, startLng),
+      L.latLng(endLat, endLng)
+    ],
+    routeWhileDragging: false
+  }).addTo(map);
+}
 </script>
 
 <script>
