@@ -305,12 +305,17 @@ const satelliteStyle = {
   ]
 };
 
-let map = new maplibregl.Map({
-  container: "map",
-  style: normalStyle,
-  center: [-8.0029, 12.6392],
-  zoom: 13
-});
+let map;
+
+function initMap() {
+  map = L.map('map').setView([12.6392, -8.0029], 13);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap'
+  }).addTo(map);
+}
+
+window.onload = initMap;
 
 // Zoom + boussole + rotation
 map.addControl(new maplibregl.NavigationControl(), "top-right");
@@ -681,6 +686,29 @@ function toggleMute() {
 
 <script>
 const socket = io("https://fasokocom-server.onrender.com");
+
+let routeControl;
+
+socket.on("receiveRoute", (data) => {
+  console.log("📍 ITINÉRAIRE REÇU :", data);
+
+  if (!map) {
+    console.log("❌ Map pas prête !");
+    return;
+  }
+
+  if (routeControl) {
+    map.removeControl(routeControl);
+  }
+
+  routeControl = L.Routing.control({
+    waypoints: [
+      L.latLng(data.start.lat, data.start.lng),
+      L.latLng(data.end.lat, data.end.lng)
+    ],
+    routeWhileDragging: false
+  }).addTo(map);
+});
 
 // 📍 envoyer position + Firebase en même temps
 navigator.geolocation.watchPosition(position => {

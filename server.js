@@ -56,19 +56,34 @@ let agentsPositions = {};
 io.on("connection", (socket) => {
   console.log("🟢 Agent connecté :", socket.id);
 
+  // 📍 POSITION
   socket.on("updatePosition", (data) => {
     console.log("📥 POSITION REÇUE :", data);
 
-    agentsPositions[socket.id] = data;
+    agentsPositions[data.name] = {
+      ...data,
+      socketId: socket.id
+    };
 
     io.emit("positionsUpdate", agentsPositions);
   });
 
+  // 📡 ITINÉRAIRE DU COMMANDEMENT
+  socket.on("sendRoute", (data) => {
+    console.log("📡 ITINÉRAIRE REÇU DU COMMANDEMENT :", data);
+
+    io.emit("receiveRoute", data);
+  });
+
+  // 🔴 DÉCONNEXION
   socket.on("disconnect", () => {
-    delete agentsPositions[socket.id];
+    for (let key in agentsPositions) {
+      if (agentsPositions[key].socketId === socket.id) {
+        delete agentsPositions[key];
+      }
+    }
 
     io.emit("positionsUpdate", agentsPositions);
-
     console.log("🔴 Agent déconnecté :", socket.id);
   });
 });

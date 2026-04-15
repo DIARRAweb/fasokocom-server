@@ -2,18 +2,22 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<!-- Leaflet CSS -->
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
-
-<!-- 🔥 ROUTING -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
+<!-- Routing -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css"/>
 <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
 
-<!-- 🔥 FULLSCREEN -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet.fullscreen/Control.FullScreen.css" />
+<!-- Fullscreen -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet.fullscreen/Control.FullScreen.css"/>
 <script src="https://unpkg.com/leaflet.fullscreen/Control.FullScreen.js"></script>
 
+<!-- Boussole -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet-compass/dist/leaflet-compass.css"/>
+<script src="https://unpkg.com/leaflet-compass/dist/leaflet-compass.js"></script>
 <title>FASOKOCOM - Commandement</title>
 
 <style>
@@ -216,9 +220,11 @@ button {
 
 <script>
 const agents = [
-  { id: 1, name: "Idrissa", grade: "Chef", active: true, lat: null, lng: null },
-  { id: 2, name: "Moussa", grade: "Agent", active: true, lat: null, lng: null },
+  { id: 1, name: "Idrissa", grade: "Chef", active: true },
+  { id: 2, name: "Moussa", grade: "Agent", active: true }
 ];
+
+let liveAgents = {};
 
 function renderAgents() {
   const container = document.getElementById("agentsList");
@@ -257,24 +263,53 @@ let markers = [];
 
 function initMap() {
   map = L.map('map').setView([12.6392, -8.0029], 13);
-
   console.log("MAP CREATED", map);
 
   const baseMaps = {
-  "Normal": L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png'),
-  "Noir": L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_dark/{z}/{x}/{y}{r}.png'),
-  "Clair": L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png'),
-  "Relief": L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png'),
-  "Satellite (fake)": L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png')
-};
+    "Normal": L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap France'
+    }),
+    "Relief": L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png'),
+    "Satellite": L.tileLayer(
+      'https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+      { subdomains: ['mt0','mt1','mt2','mt3'] }
+    )
+  };
 
-baseMaps["Normal"].addTo(map);
+  // ✅ afficher couche par défaut
+  baseMaps["Normal"].addTo(map);
 
-L.control.layers(baseMaps).addTo(map);
+  // ✅ switch carte
+  L.control.layers(baseMaps).addTo(map);
+
+  // 🔄 corriger affichage
   setTimeout(() => {
     map.invalidateSize();
   }, 500);
-  map.addControl(new L.Control.Fullscreen());
+
+  // 🔲 FULLSCREEN (propre)
+  map.addControl(new L.Control.Fullscreen({
+    position: 'topright'
+  }));
+
+  // 🧭 BOUSSOLE (corrigée)
+  L.control.compass({
+    position: 'topright',
+    autoActive: true
+  }).addTo(map);
+
+  // 📍 LOCALISATION GPS
+  map.locate({ setView: true, maxZoom: 16 });
+
+  map.on('locationfound', function(e) {
+    L.marker(e.latlng)
+      .addTo(map)
+      .bindPopup("📍 Vous êtes ici")
+      .openPopup();
+  });
+
+  // 🔎 déplacer zoom
+  map.zoomControl.setPosition('bottomright');
 }
 
 // 🔥 lancer la carte
@@ -330,13 +365,11 @@ function populateAgentSelect() {
   const select = document.getElementById("agentSelect");
   select.innerHTML = "";
 
-  agents.forEach(agent => {
-    if (agent.active) {
-      const option = document.createElement("option");
-      option.value = agent.id;
-      option.textContent = agent.name;
-      select.appendChild(option);
-    }
+  Object.keys(liveAgents).forEach(name => {
+    const option = document.createElement("option");
+    option.value = name;
+    option.textContent = name;
+    select.appendChild(option);
   });
 }
 
@@ -346,28 +379,41 @@ async function createRoute() {
   const agentId = document.getElementById("agentSelect").value;
   const query = document.getElementById("searchInput").value;
 
+  console.log("liveAgents :", liveAgents);
+  console.log("agentId sélectionné :", agentId);
+
   if (!query) return alert("Destination requise");
 
+  // 🔍 destination
   const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}`);
   const data = await res.json();
 
   if (data.length === 0) return alert("Lieu introuvable");
 
-  const agent = agents.find(a => a.id == agentId);
+  // 🔥 RÉCUPÉRATION POSITION RÉELLE
+  const agent = liveAgents[agentId];
 
-if (!agent.lat || !agent.lng) {
-  return alert("Position de l’agent indisponible");
+console.log("Agent récupéré :", agent);
+
+if (!agent) {
+  return alert("Agent non connecté");
 }
 
-const startLat = agent.lat;
-const startLng = agent.lng;
-  const endLat = data[0].lat;
-  const endLng = data[0].lon;
+if (!agent.lat || !agent.lng) {
+  return alert("Position GPS non disponible");
+}
 
+  const startLat = agent.lat;
+  const startLng = agent.lng;
+  const endLat = parseFloat(data[0].lat);
+  const endLng = parseFloat(data[0].lon);
+
+  // supprimer ancien itinéraire
   if (routingControl) {
     map.removeControl(routingControl);
   }
 
+  // 🔥 CRÉATION ITINÉRAIRE
   routingControl = L.Routing.control({
     waypoints: [
       L.latLng(startLat, startLng),
@@ -375,6 +421,17 @@ const startLng = agent.lng;
     ],
     routeWhileDragging: false
   }).addTo(map);
+
+  console.log("✅ Itinéraire créé !");
+
+  // ✅ AJOUTE JUSTE ICI 👇
+socket.emit("sendRoute", {
+  agent: agentId,
+  start: { lat: startLat, lng: startLng },
+  end: { lat: endLat, lng: endLng }
+});
+
+console.log("✅ Itinéraire envoyé à l'agent");
 }
 </script>
 
@@ -478,7 +535,13 @@ const socket = io("https://fasokocom-server.onrender.com");
 
 socket.on("positionsUpdate", (agents) => {
   console.log("📡 POSITIONS REÇUES :", agents);
+
+  liveAgents = agents;
+
+  console.log("LIVE AGENTS :", liveAgents); // ✅ ICI
+
   updateMap(agents);
+  populateAgentSelect(); // (important)
 });
 </script>
 
