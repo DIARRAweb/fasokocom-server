@@ -5,7 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FASOKOCOM</title>
 
-<link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.fullscreen/Control.FullScreen.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.fullscreen/Control.FullScreen.css"/>
 
 <style>
 body{
@@ -53,7 +56,7 @@ button:active{
 }
 
 #map{
-  height:450px;
+  height:65vh;
   width:90%;
   margin:auto;
   border-radius:14px;
@@ -61,21 +64,6 @@ button:active{
   box-shadow:0 10px 25px rgba(0,0,0,0.55);
 }
 
-/* CONTROLES MAPLIBRE -> très transparent */
-.maplibregl-ctrl-group{
-  background:rgba(0,0,0,0.15) !important;
-  backdrop-filter: blur(6px);
-  border:none !important;
-}
-
-.maplibregl-ctrl-group button{
-  background:transparent !important;
-  color:white !important;
-}
-
-.maplibregl-ctrl-group button:hover{
-  background:rgba(255,255,255,0.08) !important;
-}
 
 /* Menu déroulant */
 .mapMenu{
@@ -185,6 +173,23 @@ button[onclick="acceptCall()"]{ background:#00e676; color:black; }
 button[onclick="hangUp()"]{ background:#d50000; color:white; }
 button[onclick="toggleMute()"]{ background:#ffab00; color:black; }
 
+.leaflet-control-zoom a,
+.leaflet-bar a {
+background: rgba(0,0,0,0.35) !important;
+color: white !important;
+border: none !important;
+backdrop-filter: blur(8px);
+border-radius:8px;
+}
+
+.leaflet-bar {
+box-shadow: 0 5px 15px rgba(0,0,0,0.4);
+}
+
+.leaflet-control-zoom a:hover {
+  background: rgba(255,255,255,0.2) !important;
+}
+
 </style>
 </head>
 
@@ -241,13 +246,15 @@ window.userType = prompt("Type (agent / moto / vehicule / helico / chasseur)") |
 document.getElementById("debug").innerText = "✅ HTML chargé";
 </script>
 
-<script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
-import { getDatabase, ref, set, onValue, onDisconnect, remove } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-database.js";
+import { initializeApp } from
+"https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
 
-// Firebase Config (FASOKOCOM2)
+import { getDatabase, ref, set, onValue, onDisconnect, remove } from
+"https://www.gstatic.com/firebasejs/12.10.0/firebase-database.js";
+
+// 🔥 CONFIG FIREBASE
 const firebaseConfig = {
   apiKey: "AIzaSyA83FA1Ne_qjYoIYHtsOXc7j3h3bdTOgLQ",
   authDomain: "fasokocom2.firebaseapp.com",
@@ -257,351 +264,260 @@ const firebaseConfig = {
   appId: "1:730331164569:web:8e984ad9d88a30bf2c2d08"
 };
 
+// 🔥 INITIALISATION
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// Nom agent
-
-// ID unique
+// 🆔 ID UTILISATEUR UNIQUE
 let userId = "agent_" + Math.floor(Math.random() * 1000000);
+
+// 📡 RÉFÉRENCE FIREBASE
 let userRef = ref(db, "users/" + userId);
 
+// 🧹 SUPPRESSION AUTOMATIQUE SI DÉCONNECTÉ
 onDisconnect(userRef).remove();
 
-// ---------------- STYLES ----------------
-const normalStyle = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
-const reliefStyle = "https://tiles.stadiamaps.com/styles/outdoors.json";
-
-// Satellite + Labels (corrigé)
-const satelliteStyle = {
-  version: 8,
-  sources: {
-    satellite: {
-      type: "raster",
-      tiles: [
-        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-      ],
-      tileSize: 256
-    },
-    labels: {
-      type: "raster",
-      tiles: [
-        "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Reference_Overlay/MapServer/tile/{z}/{y}/{x}"
-      ],
-      tileSize: 256
-    }
-  },
-  layers: [
-    {
-      id: "satellite-layer",
-      type: "raster",
-      source: "satellite"
-    },
-    {
-      id: "labels-layer",
-      type: "raster",
-      source: "labels"
-    }
-  ]
-};
 
 let map;
 
 function initMap() {
-  map = L.map('map').setView([12.6392, -8.0029], 13);
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap'
-  }).addTo(map);
+  map = L.map('map', {
+    zoomControl: false
+  }).setView([12.6392, -8.0029], 13);
+
+  // 🔍 Zoom à gauche
+  L.control.zoom({ position: 'topleft' }).addTo(map);
+
+  // 🌍 Layer par défaut
+  currentLayer = normalLayer;
+  currentLayer.addTo(map);
+
+  // 🖥 Fullscreen
+  map.addControl(new L.Control.Fullscreen({
+    position: 'topleft'
+  }));
+
+  // 🧭 Boussole
+  northControl.addTo(map);
+
+  // 🗺 Bouton menu carte
+  styleControl.addTo(map);
 }
-
+// ✅ attendre que la page soit prête
 window.onload = initMap;
 
-// Zoom + boussole + rotation
-map.addControl(new maplibregl.NavigationControl(), "top-right");
-map.addControl(new maplibregl.FullscreenControl(), "top-right");
 
-// ---------------- MENU STYLES ----------------
+const northControl = L.control({ position: 'topleft' });
+
+northControl.onAdd = function () {
+  const div = L.DomUtil.create('div', 'leaflet-bar');
+
+  div.innerHTML = '<a href="#">🧭</a>';
+
+  div.onclick = function (e) {
+    e.preventDefault();
+    map.setView([12.6392, -8.0029], map.getZoom());
+  };
+
+  return div;
+};
+
+
+/// =============================
+// 🎛 MENU + SWITCH LAYERS (LEAFLET)
+// =============================
+
+let currentLayer;
+
+// 🌍 Layers
+const normalLayer = L.tileLayer(
+  'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+  { attribution: '&copy; CARTO' }
+);
+
+const satelliteLayer = L.tileLayer(
+  'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  { attribution: '© Esri' }
+);
+
+const reliefLayer = L.tileLayer(
+  'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+  { attribution: '© OpenTopoMap' }
+);
+
+// =============================
+// 📦 MENU HTML
+// =============================
 let menu = document.createElement("div");
 menu.className = "mapMenu";
+
 menu.innerHTML = `
-  <button id="styleNormal">🗺 Normal</button>
-  <button id="styleSatellite">🛰 Satellite</button>
-  <button id="styleRelief">⛰ Relief</button>
+<button id="styleNormal">🗺 Normal</button>
+<button id="styleSatellite">🛰 Satellite</button>
+<button id="styleRelief">⛰ Relief</button>
 `;
-document.body.appendChild(menu);
 
-class StyleSwitcherControl {
-  onAdd(map) {
-    this.map = map;
-    this.container = document.createElement("div");
-    this.container.className = "maplibregl-ctrl maplibregl-ctrl-group";
+window.addEventListener("DOMContentLoaded", () => {
+  document.body.appendChild(menu);
+});
 
-    const btn = document.createElement("button");
-    btn.innerHTML = "🗺";
-    btn.title = "Changer la carte";
-
-    btn.onclick = () => {
-      menu.style.display = (menu.style.display === "block") ? "none" : "block";
-    };
-
-    this.container.appendChild(btn);
-    return this.container;
-  }
-
-  onRemove() {
-    this.container.parentNode.removeChild(this.container);
-    this.map = undefined;
-  }
+// =============================
+// 🔁 TOGGLE MENU
+// =============================
+function toggleMenu() {
+  menu.style.display = (menu.style.display === "block") ? "none" : "block";
 }
 
-map.addControl(new StyleSwitcherControl(), "top-right");
+window.toggleMenu = toggleMenu;
 
+// =============================
+// 🗺 BOUTON DANS LA CARTE (LEAFLET)
+// =============================
+const styleControl = L.control({ position: 'topright' });
+
+styleControl.onAdd = function () {
+  const div = L.DomUtil.create('div', 'leaflet-bar');
+
+  const btn = L.DomUtil.create('a', '', div);
+  btn.innerHTML = "🗺";
+  btn.href = "#";
+  btn.title = "Changer la carte";
+
+  btn.style.fontSize = "18px";
+  btn.style.width = "30px";
+  btn.style.height = "30px";
+  btn.style.display = "flex";
+  btn.style.alignItems = "center";
+  btn.style.justifyContent = "center";
+  btn.style.background = "white";
+
+  L.DomEvent.disableClickPropagation(div);
+
+  btn.onclick = function (e) {
+    e.preventDefault();
+    toggleMenu();
+  };
+
+  return div;
+};
+
+// =============================
+// 🔄 CHANGEMENT DE STYLE
+// =============================
+function setMapLayer(layer) {
+  if (currentLayer) {
+    map.removeLayer(currentLayer);
+  }
+  currentLayer = layer;
+  currentLayer.addTo(map);
+}
+
+// Boutons menu
 document.getElementById("styleNormal").onclick = () => {
-  map.setStyle(normalStyle);
+  setMapLayer(normalLayer);
+  reloadMarkers();
   menu.style.display = "none";
 };
 
 document.getElementById("styleSatellite").onclick = () => {
-  map.setStyle(satelliteStyle);
+  setMapLayer(satelliteLayer);
+  reloadMarkers();
   menu.style.display = "none";
 };
 
 document.getElementById("styleRelief").onclick = () => {
-  map.setStyle(reliefStyle);
+  setMapLayer(reliefLayer);
+  reloadMarkers();
   menu.style.display = "none";
 };
 
-// ---------------- MARKERS ----------------
+// =============================
+// 📍 MARKERS (inchangé)
+// =============================
 let markers = {};
 window.lastData = {};
 
-function updateMarker(id, lat, lon, popupText, user){
-  if(!user) return;
+function updateMarker(id, lat, lon, popupText, user) {
+  if (!user || lat == null || lon == null) return;
 
+  // 🟢 Si marker existe → mise à jour
   if (markers[id]) {
-    markers[id].setLngLat([lon, lat]);
-    markers[id].getPopup().setHTML(popupText);
-  } else {
+    markers[id].setLatLng([lat, lon]);
 
-    let popup = new maplibregl.Popup({
-      offset: 25,
-      closeButton: false
-    }).setHTML(popupText);
-
-    let el = document.createElement("div");
-
-    // =========================
-    // 👤 AGENT / CHEF (points propres)
-    // =========================
-    if(user.type === "agent" || user.type === "chef"){
-
-      let color = (id === userId) ? "#00ff00" : "red";
-
-      el.style.width = user.type === "chef" ? "10px" : "8px";
-      el.style.height = user.type === "chef" ? "10px" : "8px";
-      el.style.borderRadius = "50%";
-      el.style.backgroundColor = color;
-      el.style.border = "2px solid white";
-      el.style.cursor = "pointer";
-
-      // ✅ PAS de transform compliqué
-      // animation simple sans casser la position
-      el.style.boxShadow = "0 0 8px " + color;
-
+    let popup = markers[id].getPopup();
+    if (popup) {
+      popup.setContent(popupText);
+    } else {
+      markers[id].bindPopup(popupText);
     }
 
-    // =========================
-    // 🚁 🚓 🏍️ ✈️ ENGINS
-    // =========================
-    else {
-      let emoji = "🚓";
-      if(user.type === "moto") emoji = "🏍️";
-      if(user.type === "vehicule") emoji = "🚓";
-      if(user.type === "helico") emoji = "🚁";
-      if(user.type === "chasseur") emoji = "✈️";
+    return;
+  }
 
-      el.innerHTML = emoji;
-      el.style.fontSize = "24px";
-      el.style.cursor = "pointer";
-    }
+  // =========================
+  // 🎨 CRÉATION ICON
+  // =========================
+  let icon;
 
-    // =========================
-    // AJOUT MARKER
-    // =========================
-    markers[id] = new maplibregl.Marker({
-      element: el
-    })
-    .setLngLat([lon, lat])
-    .setPopup(popup)
-    .addTo(map);
+  // 👤 AGENT / CHEF
+  if (user.type === "agent" || user.type === "chef") {
+    let color = (id === userId) ? "#00ff00" : "red";
+    let size = (user.type === "chef") ? 10 : 8;
 
-    el.addEventListener("click", (e) => {
-      e.stopPropagation();
-      popup.addTo(map);
+    icon = L.divIcon({
+      html: `<div style="
+        width:${size}px;
+        height:${size}px;
+        background:${color};
+        border:2px solid white;
+        border-radius:50%;
+        box-shadow:0 0 8px ${color};
+      "></div>`,
+      className: "",
+      iconSize: [size, size]
     });
   }
+
+  // 🚁 🚓 🏍️ ✈️ ENGINS
+  else {
+    let emoji = "🚓";
+    if (user.type === "moto") emoji = "🏍️";
+    if (user.type === "vehicule") emoji = "🚓";
+    if (user.type === "helico") emoji = "🚁";
+    if (user.type === "chasseur") emoji = "✈️";
+
+    icon = L.divIcon({
+      html: `<div style="font-size:24px;">${emoji}</div>`,
+      className: "",
+      iconSize: [24, 24]
+    });
+  }
+
+  // =========================
+  // 📍 CRÉATION MARKER
+  // =========================
+  markers[id] = L.marker([lat, lon], { icon: icon })
+    .addTo(map)
+    .bindPopup(popupText);
 }
 
-// Recharger markers après changement de style
+// 🔄 Recharger les markers (utile si besoin)
 function reloadMarkers() {
   if (!window.lastData) return;
 
+  // supprimer anciens markers
   for (let id in markers) {
     markers[id].remove();
     delete markers[id];
   }
 
+  // recréer markers
+  // recréer markers
   for (let id in window.lastData) {
     let user = window.lastData[id];
+
     if (user.latitude == null || user.longitude == null) continue;
-
-    let displayName = user.name || "Agent";
-    let popupText =
-"<b>" + displayName + "</b><br>Précision: " +
-Math.round(user.accuracy || 0) + " m";
-
-    updateMarker(id, user.latitude, user.longitude, popupText, user);
-  }
-}
-
-map.on("style.load", () => {
-  reloadMarkers();
-});
-
-// ---------------- MA POSITION (ANIMATION) ----------------
-window.showPosition = function () {
-  navigator.geolocation.getCurrentPosition((pos) => {
-    let lat = pos.coords.latitude;
-    let lon = pos.coords.longitude;
-    let accuracy = pos.coords.accuracy;
-
-    document.getElementById("position").innerHTML =
-      "Latitude: " + lat +
-      "<br>Longitude: " + lon +
-      "<br>Précision: " + Math.round(accuracy) + " m";
-
-    map.flyTo({
-      center: [lon, lat],
-      zoom: 17,
-      speed: 0.8,
-      curve: 1.6,
-      essential: true
-    });
-
-  }, (err) => {
-    alert("Erreur GPS : " + err.message);
-  }, {
-    enableHighAccuracy: true,
-    timeout: 10000,
-    maximumAge: 0
-  });
-};
-
-// ---------------- CARTE DE L'EQUIPE (ANIMATION) ----------------
-window.showMap = function () {
-  let bounds = new maplibregl.LngLatBounds();
-  let count = 0;
-
-  for (let id in markers) {
-    bounds.extend(markers[id].getLngLat());
-    count++;
-  }
-
-  if (count === 0) {
-    alert("Aucun agent trouvé sur la carte.");
-    return;
-  }
-
-  map.fitBounds(bounds, {
-    padding: 70,
-    maxZoom: 16,
-    duration: 2000
-  });
-};
-
-// ---------------- TRACKING + ENVOI FIREBASE ----------------
-
-navigator.geolocation.watchPosition((pos) => {
-  let lat = pos.coords.latitude;
-  let lon = pos.coords.longitude;
-  let accuracy = pos.coords.accuracy;
-
-  if (accuracy > 50) return;
-
-set(userRef, {
-  name: window.fullName || "Agent",
-  type: window.userType || "agent",
-  socketId: window.socketId || null,
-  status: "online",
-  latitude: lat,
-  longitude: lon,
-  accuracy: accuracy,
-  timestamp: Date.now()
-  
-});
-
-}, (err) => {
-  console.log("Erreur GPS :", err.message);
-}, {
-  enableHighAccuracy: true,
-  timeout: 10000,
-  maximumAge: 0
-});
-
-// ---------------- LECTURE TEMPS REEL ----------------
-onValue(ref(db, "users"), (snapshot) => {
-  const data = snapshot.val();
-  if (!data) return;
-
-  window.lastData = data;
-
-  // compteur
-  document.getElementById("agentCount").innerText = Object.keys(data).length;
-
-  // liste agents
-  let ul = document.getElementById("agentsUl");
-  ul.innerHTML = "";
-
-  for (let id in data) {
-    let u = data[id];
-    let nom = u.name || "Agent";
-    let precision = Math.round(u.accuracy || 0);
-
-    let li = document.createElement("li");
-    li.innerHTML = "🟢 <b>" + nom + "</b><br>📍 Précision: " + precision + " m";
-
-    li.onclick = () => {
-      map.flyTo({
-        center: [u.longitude, u.latitude],
-        zoom: 16,
-        speed: 0.8,
-        curve: 1.6
-      });
-    };
-
-    ul.appendChild(li);
-  }
-
-  // supprimer ceux qui n'existent plus
-  for (let id in markers) {
-    if (!data[id]) {
-      markers[id].remove();
-      delete markers[id];
-    }
-  }
-
-  // update markers
-  for (let id in data) {
-    let user = data[id];
-
-    // supprimer fantômes (+2 minutes)
-    if (user.timestamp && (Date.now() - user.timestamp > 120000)) {
-      remove(ref(db, "users/" + id));
-      continue;
-    }
-
-    if (!user.latitude || !user.longitude) continue;
 
     let displayName = user.name || "Agent";
     let popupText =
@@ -610,6 +526,196 @@ onValue(ref(db, "users"), (snapshot) => {
 
     updateMarker(id, user.latitude, user.longitude, popupText, user);
   }
+}
+
+// ---------------- MA POSITION (VERSION PRO) ----------------
+window.showPosition = function () {
+
+  navigator.geolocation.getCurrentPosition(
+
+    (pos) => {
+      let lat = pos.coords.latitude;
+      let lon = pos.coords.longitude;
+      let accuracy = pos.coords.accuracy;
+
+      // 📍 afficher infos utilisateur
+      document.getElementById("position").innerHTML =
+        "📍 Latitude : " + lat +
+        "<br>📍 Longitude : " + lon +
+        "<br>🎯 Précision : " + Math.round(accuracy) + " m";
+
+      // 🎬 Animation fluide vers la position
+      map.flyTo([lat, lon], 17, {
+        animate: true,
+        duration: 2 // vitesse (2 secondes)
+      });
+
+      // 📌 Ajouter ou mettre à jour ton marker perso
+      if (window.myMarker) {
+        window.myMarker.setLatLng([lat, lon]);
+      } else {
+        window.myMarker = L.marker([lat, lon])
+          .addTo(map)
+          .bindPopup("📍 Vous êtes ici")
+          .openPopup();
+      }
+    },
+
+    (err) => {
+      alert("❌ Erreur GPS : " + err.message);
+    },
+
+    {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0
+    }
+
+  );
+};
+
+// ---------------- CARTE DE L'EQUIPE (VERSION PRO) ----------------
+window.showMap = function () {
+
+  if (!map) {
+    alert("❌ Carte non initialisée");
+    return;
+  }
+
+  let bounds = L.latLngBounds([]);
+  let count = 0;
+
+  for (let id in markers) {
+    let marker = markers[id];
+
+    if (!marker || !marker.getLatLng) continue;
+
+    bounds.extend(marker.getLatLng());
+    count++;
+  }
+
+  // 🚫 Aucun agent
+  if (count === 0) {
+    alert("⚠️ Aucun agent trouvé sur la carte.");
+    return;
+  }
+
+  // 🎬 Animation vers tous les agents
+  map.flyToBounds(bounds, {
+    padding: [50, 50],
+    maxZoom: 16,
+    duration: 2 // animation fluide
+  });
+
+};
+
+// ---------------- TRACKING + ENVOI FIREBASE ----------------
+navigator.geolocation.watchPosition(
+
+  (pos) => {
+    let lat = pos.coords.latitude;
+    let lon = pos.coords.longitude;
+    let accuracy = pos.coords.accuracy;
+
+    // 🎯 ignorer si trop imprécis
+    if (accuracy > 50) return;
+
+    // 📡 envoyer à Firebase
+    set(userRef, {
+      name: window.fullName || "Agent",
+      type: window.userType || "agent",
+      socketId: window.socketId || null,
+
+      latitude: lat,
+      longitude: lon,
+      accuracy: accuracy,
+
+      status: "online",
+      timestamp: Date.now()
+    });
+
+  },
+
+  (err) => {
+    console.log("❌ Erreur GPS :", err.message);
+  },
+
+  {
+    enableHighAccuracy: true,
+    timeout: 10000,
+    maximumAge: 0
+  }
+
+);
+
+// ---------------- LECTURE TEMPS REEL ----------------
+onValue(ref(db, "users"), (snapshot) => {
+
+  const data = snapshot.val();
+  if (!data) return;
+
+  window.lastData = data;
+
+  // 👥 compteur
+  document.getElementById("agentCount").innerText = Object.keys(data).length;
+
+  // 📋 liste agents
+  let ul = document.getElementById("agentsUl");
+  ul.innerHTML = "";
+
+  for (let id in data) {
+    let u = data[id];
+
+    let nom = u.name || "Agent";
+    let precision = Math.round(u.accuracy || 0);
+
+    let li = document.createElement("li");
+
+    li.innerHTML =
+      "🟢 <b>" + nom + "</b><br>📍 Précision: " + precision + " m";
+
+    // 🎬 zoom vers agent (Leaflet)
+    li.onclick = () => {
+      if (u.latitude && u.longitude) {
+        map.flyTo([u.latitude, u.longitude], 16, {
+          animate: true,
+          duration: 1.5
+        });
+      }
+    };
+
+    ul.appendChild(li);
+  }
+
+  // 🧹 supprimer anciens markers inexistants
+  for (let id in markers) {
+    if (!data[id]) {
+      markers[id].remove();
+      delete markers[id];
+    }
+  }
+
+  // 🔄 mise à jour markers
+  for (let id in data) {
+    let user = data[id];
+
+    // ⏱ supprimer fantômes (+2 min)
+    if (user.timestamp && (Date.now() - user.timestamp > 120000)) {
+      remove(ref(db, "users/" + id));
+      continue;
+    }
+
+    if (!user.latitude || !user.longitude) continue;
+
+    let displayName = user.name || "Agent";
+
+    let popupText =
+      "<b>" + displayName + "</b><br>📍 Précision: " +
+      Math.round(user.accuracy || 0) + " m";
+
+    updateMarker(id, user.latitude, user.longitude, popupText, user);
+  }
+
 });
 </script>
 
